@@ -11,6 +11,13 @@ struct item {
     double ratio;
 };
 
+static int comparator(const void *a_, const void *b_) {
+    const struct item *a = (struct item*)a_, *b = (struct item*)b_;
+    if(a->ratio > b->ratio) return -1;
+    if(a->ratio < b->ratio) return 1;
+    return 0;
+}
+
 struct variant {
     enum { INT, DOUBLE } tag;
     union {
@@ -19,14 +26,13 @@ struct variant {
     };
 };
 
-static struct variant fractional_knapsack(int max_weight, const struct item *items, int len) {
+static struct variant fractional_knapsack(int max_weight, struct item *items, int len) {
+    qsort(items, len, sizeof(struct item), comparator);
+
     int total_value = 0;
     int remaining_weight = max_weight;
     for(int item_index = 0;item_index < len;item_index++) {
         const struct item *item = items + item_index;
-        if(item_index != 0) {
-            ASSERT(items[item_index - 1].ratio >= item->ratio);
-        }
         if(item->weight <= remaining_weight) {
             remaining_weight -= item->weight;
             total_value += item->value;
@@ -38,17 +44,6 @@ static struct variant fractional_knapsack(int max_weight, const struct item *ite
         }
     }
     return (struct variant){.tag = INT, .int_val = total_value};
-}
-
-static int comparator(const void *a_, const void *b_) {
-    const struct item *a = (struct item*)a_, *b = (struct item*)b_;
-    if(a->ratio > b->ratio) {
-        return -1;
-    } else if(a->ratio < b->ratio) {
-        return 1;
-    } else {
-        return 0;
-    }
 }
 
 int main(void) {
@@ -63,8 +58,6 @@ int main(void) {
         ASSERT(scanf("%d", &items[i].weight) == 1);
         items[i].ratio = (double)items[i].value / (double)items[i].weight;
     }
-    // C sorting is horrible :(
-    qsort(items, len, sizeof(struct item), comparator);
     struct variant result = fractional_knapsack(max_weight, items, len);
     ASSERT(result.tag == INT || result.tag == DOUBLE);
     if(result.tag == DOUBLE) {
