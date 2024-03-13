@@ -9,7 +9,7 @@
 struct item {
     int weight;
     int value;
-    double ratio;
+    float ratio;
 };
 
 // Comparator for qsort. Sorts in descending order of value/weight ratio.
@@ -21,12 +21,12 @@ static int comparator(const void *a_, const void *b_) {
 }
 
 // I don't want to show decimal places if we didn't slice any items, so I used a small tagged union.
-// In C++ this would be std::variant<int, double>.
+// In C++ this would be std::variant<int, float>.
 struct variant {
-    enum { INT, DOUBLE } tag;
+    enum { INT, FLOAT } tag;
     union {
         int int_val;
-        double double_val;
+        float float_val;
     };
 };
 
@@ -39,7 +39,7 @@ struct variant {
 static struct variant fractional_knapsack(int max_weight, struct item *items, int len) {
     // Fractional knapsack is easier to solve, we just need a greedy algorithm.
     // Since we can slice items, taking an item with high ratio will never screw us over later.
-    // If no item is sliced, the solution will be an integer, otherwise it may have decimal places so we use a double.
+    // If no item is sliced, the solution will be an integer, otherwise it may have decimal places so we use a float.
 
     // The items must be sorted in descending order of value/weight ratio.
     // We do not assume that the input has already been sorted.
@@ -50,6 +50,7 @@ static struct variant fractional_knapsack(int max_weight, struct item *items, in
     int accumulated_value = 0;
     int remaining_weight = max_weight;
     for(int item_index = 0;item_index < len;item_index++) {
+        // Give this a more readable name.
         const struct item *item = items + item_index;
         if(item->weight <= remaining_weight) {
             // We can take the whole item.
@@ -58,9 +59,9 @@ static struct variant fractional_knapsack(int max_weight, struct item *items, in
         } else if(remaining_weight > 0) {
             // We can slice the item.
             // Calculate the value of the sliced amount.
-            double sliced_amount = ((double)remaining_weight / (double)item->weight) * (double)item->value;
-            // Return the accumulated value plus the sliced item value, as a double.
-            return (struct variant){.tag = DOUBLE, .double_val = sliced_amount + (double)accumulated_value};
+            float sliced_amount = ((float)remaining_weight / (float)item->weight) * (float)item->value;
+            // Return the accumulated value plus the sliced item value, as a float.
+            return (struct variant){.tag = FLOAT, .float_val = sliced_amount + (float)accumulated_value};
         } else {
             // We can't slice the item.
             break;
@@ -83,12 +84,12 @@ int main(void) {
     }
     for(int i = 0;i < len;i++) {
         ASSERT(scanf("%d", &items[i].weight) == 1);
-        items[i].ratio = (double)items[i].value / (double)items[i].weight;
+        items[i].ratio = (float)items[i].value / (float)items[i].weight;
     }
     struct variant result = fractional_knapsack(max_weight, items, len);
-    ASSERT(result.tag == INT || result.tag == DOUBLE);
-    if(result.tag == DOUBLE) {
-        ASSERT(printf("%.6lf\n", result.double_val) > 0);
+    ASSERT(result.tag == INT || result.tag == FLOAT);
+    if(result.tag == FLOAT) {
+        ASSERT(printf("%.6lf\n", result.float_val) > 0);
     } else {
         ASSERT(printf("%d\n", result.int_val) > 0);
     }
