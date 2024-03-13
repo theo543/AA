@@ -9,14 +9,15 @@
 struct item {
     int weight;
     int value;
-    float ratio;
 };
 
 // Comparator for qsort. Sorts in descending order of value/weight ratio.
 static int comparator(const void *a_, const void *b_) {
+    // Undo qsort type erasure. Ugly, but we don't have templates.
     const struct item *a = (struct item*)a_, *b = (struct item*)b_;
-    if(a->ratio > b->ratio) return -1;
-    if(a->ratio < b->ratio) return 1;
+    // Values and weights are small, so the multiplication won't overflow.
+    if(a->value * b->weight > b->value * a->weight) return -1;
+    if(a->value * b->weight < b->value * a->weight) return 1;
     return 0;
 }
 
@@ -84,7 +85,6 @@ int main(void) {
     }
     for(int i = 0;i < len;i++) {
         ASSERT(scanf("%d", &items[i].weight) == 1);
-        items[i].ratio = (float)items[i].value / (float)items[i].weight;
     }
     struct variant result = fractional_knapsack(max_weight, items, len);
     ASSERT(result.tag == INT || result.tag == FLOAT);
