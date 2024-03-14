@@ -45,8 +45,8 @@ static int knapsack_optimal(int max_weight, int len, const int *weights, const i
         int item_weight = weights[item - 1];
         int item_value = values[item - 1];
         // For DP[i][w] where w < item_weight, we cannot use this item, so we use the previous value.
-        // The min is for cases where item_weight > max_weight.
-        // This is not necessary for the homework, but I wanted to test this solution on GeeksForGeeks, and I'm not sure if they include such cases.
+        // For the case where item_weight >= max_weight, we want to loop over the entire row, skipping the item that doesn't fit.
+        // This is not necessary for the homework, but I wanted to test this solution on GeeksForGeeks, and they include items that don't fit in the knapsack.
         for(int weight = 0; weight <= min(max(item_weight - 1, 0), max_weight); weight++) {
             current[weight] = prev[weight];
         }
@@ -67,6 +67,11 @@ static int knapsack_optimal(int max_weight, int len, const int *weights, const i
 
 int main(void) {
     // Driver code to handle I/O.
+    // Constraints:
+    // 1 <= n (len) <= 1000
+    // 1 <= W (max_weight) <= 1000
+    // 1 <= weights[i] <= 100
+    // 1 <= values[i] <= 100
     int len, max_weight;
     ASSERT(scanf("%d %d", &len, &max_weight) == 2);
     int *input_memory = (int*) malloc(sizeof(int) * len * 2);

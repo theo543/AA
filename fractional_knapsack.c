@@ -23,6 +23,8 @@ static int comparator(const void *a_, const void *b_) {
 
 // I don't want to show decimal places if we didn't slice any items, so I used a small tagged union.
 // In C++ this would be std::variant<int, float>.
+// I could've just put a float and a bool to indicate whether to show decimals...
+// But I wanted to try using a tagged union, since I've never used them in C (or C++) before
 struct variant {
     enum { INT, FLOAT } tag;
     union {
@@ -44,6 +46,7 @@ static struct variant fractional_knapsack(int max_weight, struct item *items, in
 
     // The items must be sorted in descending order of value/weight ratio.
     // We do not assume that the input has already been sorted.
+    // If the input was sorted by the driver code, the complexity would be O(n), that's not part of the problem constraints.
     // C sorting is ugly :(
     qsort(items, len, sizeof(struct item), comparator);
 
@@ -76,6 +79,11 @@ static struct variant fractional_knapsack(int max_weight, struct item *items, in
 
 int main(void) {
     // Driver code to handle I/O.
+    // Constraints:
+    // 1 <= n (len) <= 1000
+    // 1 <= W (max_weight) <= 1000
+    // 1 <= weights[i] <= 100
+    // 1 <= values[i] <= 100
     int len, max_weight;
     ASSERT(scanf("%d %d", &len, &max_weight) == 2);
     struct item *items = (struct item*) malloc(sizeof(struct item) * len);
@@ -86,8 +94,10 @@ int main(void) {
     for(int i = 0;i < len;i++) {
         ASSERT(scanf("%d", &items[i].weight) == 1);
     }
+    // Do not sort the input, the algorithm has to do that.
     struct variant result = fractional_knapsack(max_weight, items, len);
     ASSERT(result.tag == INT || result.tag == FLOAT);
+    // Only floats need to be printed with decimal places.
     if(result.tag == FLOAT) {
         ASSERT(printf("%.6lf\n", result.float_val) > 0);
     } else {
