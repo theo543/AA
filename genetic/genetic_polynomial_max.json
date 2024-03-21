@@ -1,0 +1,15 @@
+{
+    "population_size": 50,
+    "domain_start": -10,
+    "domain_end": 10,
+    "polynomial_terms":[
+        [2, -1],
+        [1, 1],
+        [0, 2]
+    ],
+    "decimal_precision": 3,
+    "crossover_chance": 0.20,
+    "mutation_chance": 0.1,
+    "generations": 20,
+    "random_seed": 2024
+}
