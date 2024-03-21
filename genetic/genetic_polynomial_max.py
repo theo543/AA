@@ -7,6 +7,7 @@ from itertools import accumulate
 from typing import Any
 from textwrap import wrap
 from secrets import randbits
+from pprint import pprint
 
 @dataclass
 class Configuration:
@@ -135,7 +136,7 @@ def format_chromosome(c: Chromosome, poly: Polynomial) -> str:
 
 def main():
     cfg = parse_args()
-    print(cfg)
+    pprint(cfg)
     poly = Polynomial(cfg.polynomial_terms)
     d = Discretize(cfg.domain_start, cfg.domain_end, cfg.decimal_precision)
     rng = Random(cfg.random_seed if cfg.random_seed != 0 else randbits(64))
