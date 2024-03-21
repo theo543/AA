@@ -17,6 +17,7 @@ class Configuration:
     mutation_chance: float
     generations: int
     random_seed: int
+    copy_best_to_new_generation: bool
 
     def __post_init__(self):
         assert self.population_size >= 2
@@ -145,7 +146,10 @@ def main():
         best = population[best_fitness_index]
         print(f"Average fitness: {avg_fitness}")
         print(f"Best fitness: {best_fitness}")
-        selected = select_chromosomes(cfg.population_size - 1, population, s_data.cumulative_prob, rng, verbose)
+        amount_to_select = len(population)
+        if cfg.copy_best_to_new_generation:
+            amount_to_select -= 1
+        selected = select_chromosomes(amount_to_select, population, s_data.cumulative_prob, rng, verbose)
         to_crossover: list[int] = []
         #TODO print crossover process
         for i in range(len(selected)):
@@ -159,7 +163,8 @@ def main():
             selected[i], selected[i + 1] = crossover(selected[i], selected[i + 1], rng, d)
         #before_mutation = selected
         selected = [mutate(c, cfg.mutation_chance, rng, d) for c in selected]
-        selected.append(best)
+        if cfg.copy_best_to_new_generation:
+            selected.append(best)
         population = selected
         verbose = False
     #TODO print results as we go, and print final result
