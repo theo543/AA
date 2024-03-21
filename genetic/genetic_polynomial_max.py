@@ -6,6 +6,7 @@ from random import Random
 from itertools import accumulate
 from typing import Any
 from textwrap import wrap
+from secrets import randbits
 
 @dataclass
 class Configuration:
@@ -137,7 +138,7 @@ def main():
     print(cfg)
     poly = Polynomial(cfg.polynomial_terms)
     d = Discretize(cfg.domain_start, cfg.domain_end, cfg.decimal_precision)
-    rng = Random(cfg.random_seed)
+    rng = Random(cfg.random_seed if cfg.random_seed != 0 else randbits(64))
     population = generate_population(cfg.population_size, rng, d)
     verbose = True
     print("Generation 0 (initial population):")
