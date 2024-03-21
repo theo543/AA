@@ -36,9 +36,9 @@ def parse_args() -> Configuration:
 
 class Polynomial:
     _terms: list[tuple[int, float]]
-    def __init__(self, terms):
+    def __init__(self, terms: list[tuple[int, float]]):
         self._terms = terms
-    def eval(self, x):
+    def eval(self, x: float):
         return sum(pow(x, term[0]) * term[1] for term in self._terms)
 
 @dataclass
@@ -50,37 +50,31 @@ class Discretize:
     _steps: list[float]
     _bits: int
     def __init__(self, begin: float, end: float, precision: float):
-        bits = ceil(log2(end - begin) * (10 ** precision))
+        bits = ceil(log2((end - begin) * (10 ** precision)))
         step = (end - begin) / (2 ** bits)
         self._bits = bits
         self._steps = [step * (i + 1) for i in range(2 ** bits)]
     def encode(self, nr: float) -> str:
-        index = search(nr, self.intervals)
+        index = search(nr, self._steps)
         return f"{index:0{self._bits}b}"
     def decode_float(self, bits: str) -> float:
         index = int(bits, 2)
-        return self.intervals[index]
+        return self._steps[index]
     def decode_chromo(self, bits: str) -> Chromosome:
         return Chromosome(self.decode_float(bits), bits)
     def bits(self) -> int:
         return self._bits
 
-def mutate(c: Chromosome, rng: Random, d: Discretize) -> Chromosome:
-    bits = c.encoded
-    bit = rng.randint(0, len(bits) - 1)
-    mutated = str(bits)
-    match bits[bit]:
-        case '1':
-            mutated[bit] = '0'
-        case '0':
-            mutated[bit] = '1'
-        case _:
-            raise ValueError(f"'bits' contains a value that's not 0 or 1 at index {bit}: {bits[bit]}")
-    return d.decode_chromo(mutated)
+def mutate(c: Chromosome, bit_flip_chance: float, rng: Random, d: Discretize) -> Chromosome:
+    bits = list(c.encoded)
+    for i in range(len(bits)):
+        if rng.random() < bit_flip_chance:
+            bits[i] = '1' if (bits[i] == '0') else '0'
+    return d.decode_chromo(''.join(bits))
 
 def crossover(a: Chromosome, b: Chromosome, rng: Random, d: Discretize) -> tuple[Chromosome, Chromosome]:
-    bits_a = a
-    bits_b = b
+    bits_a = a.encoded
+    bits_b = b.encoded
     assert len(bits_a) == len(bits_b)
     cut = rng.randint(0, len(bits_a))
     new_a = bits_a[:cut] + bits_b[cut:]
@@ -99,13 +93,18 @@ def select_gen_data(p: Polynomial, population: list[Chromosome]) -> SelectionDat
         fitness = [f + (-least_fitness) for f in fitness]
     total_fitness = sum(fitness)
     prob = [f / total_fitness for f in fitness]
-    cumulative_prob = list(sum(prob))
+    cumulative_prob = list(accumulate(prob))
     return SelectionData(prob, cumulative_prob)
 
-def select_chromosomes(amount_to_select: int, cumulative_prob: list[Chromosome], rng: Random) -> list[Chromosome]:
-    return [search(rng.random(), cumulative_prob) for _ in range(amount_to_select)]
+def select_chromosomes(amount_to_select: int, population: list[Chromosome], cumulative_prob: list[float], rng: Random, verbose: bool) -> list[Chromosome]:
+    selected: list[Chromosome] = []
+    for _ in range(amount_to_select):
+        u = rng.random()
+        chosen = search(u, cumulative_prob)
+        selected.append(population[chosen])
+    return selected
 
-def search(item: Any, lst: list):
+def search(item: Any, lst: list[Any]):
     if item > lst[-1]:
         raise ValueError("'item' is greater than all list elements.")
     l = 0
@@ -135,12 +134,19 @@ def main():
     population = generate_population(cfg.population_size, rng, d)
     verbose = True #TODO print loads of stuff on first iteration
     #TODO print initial population
-    for _ in range(cfg.generations):
+    for i in range(cfg.generations):
+        print(f"Generation {i + 1}")
         s_data = select_gen_data(poly, population)
         #TODO print prob and cumulative prob
-        best = Chromosome() # TODO save a copy of the best one
-        selected = select_chromosomes(cfg.population_size - 1, s_data.cumulative_prob, rng)
-        to_crossover = []
+        fitnesses = [poly.eval(c.value) for c in population]
+        avg_fitness = sum(fitnesses) / len(fitnesses)
+        best_fitness_index = max(range(len(fitnesses)), key=fitnesses.__getitem__)
+        best_fitness = fitnesses[best_fitness_index]
+        best = population[best_fitness_index]
+        print(f"Average fitness: {avg_fitness}")
+        print(f"Best fitness: {best_fitness}")
+        selected = select_chromosomes(cfg.population_size - 1, population, s_data.cumulative_prob, rng, verbose)
+        to_crossover: list[int] = []
         #TODO print crossover process
         for i in range(len(selected)):
             u = rng.random()
@@ -151,10 +157,8 @@ def main():
             to_crossover.pop()
         for i in range(0, len(to_crossover) - 1, 2):
             selected[i], selected[i + 1] = crossover(selected[i], selected[i + 1], rng, d)
-        #TODO should mutation_chance be the chance of exactly one bit being flipped or of every bit independently?
-        to_mutate = [i for i in range(len(selected)) if rng.random() <= cfg.mutation_chance]
-        for i in to_mutate:
-            selected[i] = mutate(selected[i], rng, d)
+        #before_mutation = selected
+        selected = [mutate(c, cfg.mutation_chance, rng, d) for c in selected]
         selected.append(best)
         population = selected
         verbose = False
