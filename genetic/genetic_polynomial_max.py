@@ -5,6 +5,7 @@ from math import ceil, log2, log10
 from random import Random
 from itertools import accumulate
 from typing import Any
+from textwrap import wrap
 
 @dataclass
 class Configuration:
@@ -161,7 +162,7 @@ def main():
             print("Selection probabilities:")
             for i, p in enumerate(s_data.prob):
                 print(f"Chromosome {pad(i)}: P={p}")
-            print("Cumulative probabilities: [" + ', '.join(f"{p}" for p in s_data.cumulative_prob) + "]")
+            print('\n'.join(wrap("Cumulative probabilities: [" + ', '.join(f"{p}" for p in s_data.cumulative_prob) + "]", subsequent_indent='    ')))
         selected = select_chromosomes(amount_to_select, population, s_data.cumulative_prob, rng, verbose)
         if verbose:
             print()
