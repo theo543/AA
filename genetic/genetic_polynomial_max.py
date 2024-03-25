@@ -4,7 +4,6 @@ from json import loads
 from math import ceil, log2, log10
 from random import Random
 from itertools import accumulate
-from typing import Any
 from textwrap import wrap
 from secrets import randbits
 from pprint import pprint
@@ -110,7 +109,7 @@ def select_chromosomes(amount_to_select: int, population: list[Chromosome], cumu
             print(f"u={u}: Select chromosome {chosen}")
     return selected
 
-def search(item: Any, lst: list[Any]):
+def search(item: float, lst: list[float]):
     if item > lst[-1]:
         raise ValueError("'item' is greater than all list elements.")
     l = 0
