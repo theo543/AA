@@ -34,7 +34,7 @@ def parse_args() -> Configuration:
     ap = ArgumentParser("genetics-polynomial-max")
     ap.add_argument("config_JSON_path", type=str, default="genetic_polynomial_max.json", nargs='?')
     config: str = ap.parse_args().config_JSON_path
-    with open(config, "r") as f:
+    with open(config, "r", encoding='utf-8') as f:
         return Configuration(**loads(f.read()))
 
 class Polynomial:
@@ -69,11 +69,13 @@ class Discretize:
         return self._bits
 
 def mutate(c: Chromosome, bit_flip_chance: float, rng: Random, d: Discretize) -> Chromosome:
-    bits = list(c.encoded)
-    for i in range(len(bits)):
+    def maybe_flip(bit: str) -> str:
+        assert bit in ('0', '1')
         if rng.random() < bit_flip_chance:
-            bits[i] = '1' if (bits[i] == '0') else '0'
-    return d.decode_chromo(''.join(bits))
+            return '1' if bit == '0' else '0'
+        return bit
+    mutated = ''.join(map(maybe_flip, c.encoded))
+    return d.decode_chromo(mutated)
 
 def crossover(a: Chromosome, b: Chromosome, rng: Random, d: Discretize) -> tuple[Chromosome, Chromosome, int]:
     bits_a = a.encoded
@@ -156,14 +158,17 @@ def main():
         print(f"Best chromosome: {format_chromosome(best, poly)}")
         if cfg.copy_best_to_new_generation:
             amount_to_select -= 1
-        
+
         s_data = select_gen_data(poly, population)
         if verbose:
             print()
             print("Selection probabilities:")
             for i, p in enumerate(s_data.prob):
                 print(f"Chromosome {pad(i)}: P={p}")
-            print('\n'.join(wrap("Cumulative probabilities: [" + ', '.join(f"{p}" for p in s_data.cumulative_prob) + "]", subsequent_indent='    ')))
+            list_long_line = f"Cumulative probabilities: {s_data.cumulative_prob}"
+            list_lines = wrap(list_long_line, subsequent_indent='    ')
+            list_paragraph = '\n'.join(list_lines)
+            print(list_paragraph)
         selected = select_chromosomes(amount_to_select, population, s_data.cumulative_prob, rng, verbose)
         if verbose:
             print()
@@ -175,16 +180,14 @@ def main():
         if verbose:
             print()
             print(f"Crossover probability = {cfg.crossover_chance}")
-        for i in range(len(selected)):
+        for index, chromo in enumerate(selected):
             u = rng.random()
-            if u <= cfg.crossover_chance:
-                to_crossover.append(i)
+            cross = u <= cfg.crossover_chance
+            if cross:
+                to_crossover.append(index)
             if verbose:
-                print(f"{pad(i)}: {selected[i].encoded} u={u} ", end='')
-                if u <= cfg.crossover_chance:
-                    print(f" | Will crossover" if (u <= cfg.crossover_chance) else "")
-                else:
-                    print()
+                print(f"{pad(index)}: {chromo.encoded} u={u} ", end="")
+                print(" | Will crossover" if cross else "")
         rng.shuffle(to_crossover)
         if len(to_crossover) % 2 == 1:
             c = to_crossover.pop()
