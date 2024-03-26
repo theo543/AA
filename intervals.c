@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,13 +13,32 @@ do {\
 #define MAX_INTERVAL_END 200000
 #define TRANSLATION_OFFSET 100000
 #define MAX_INTERVALS 100000
+#define MAX_INPUT_LINE_LEN 32
+
+static inline void read_two_ints(int *a, int *b) {
+    ASSERT(a != NULL);
+    char line[MAX_INPUT_LINE_LEN + 1];
+    ASSERT(fgets(line, MAX_INPUT_LINE_LEN + 1, stdin) == line);
+    char *endptr;
+    *a = strtol(line, &endptr, 10);
+    ASSERT(*a != LONG_MIN && *a != LONG_MAX);
+    ASSERT(endptr != NULL && endptr > line);
+    if(b != NULL) {
+        ASSERT(*endptr == ' ');
+        char *mid = endptr;
+        *b = strtol(mid, &endptr, 10);
+        ASSERT(*b != LONG_MIN && *b != LONG_MAX);
+        ASSERT(endptr != NULL && endptr > mid);
+    }
+    ASSERT(*endptr == '\r' || *endptr == '\n' || *endptr == '\0');
+}
 
 static void read_intervals(int *intervals_end, int *intervals_index) {
     int intervals;
-    ASSERT(scanf("%d", &intervals) == 1);
+    read_two_ints(&intervals, NULL);
     ASSERT(0 < intervals && intervals <= MAX_INTERVALS);
     for(int x = 0, interval_begin, interval_end;x < intervals;x++) {
-        ASSERT(scanf("%d %d", &interval_begin, &interval_end) == 2);
+        read_two_ints(&interval_begin, &interval_end);
         ASSERT(interval_begin < interval_end);
         interval_begin += TRANSLATION_OFFSET;
         interval_end += TRANSLATION_OFFSET;
@@ -61,7 +81,7 @@ int main(void) {
     static int chosen_intervals[MAX_INTERVALS];
 
     int to_cover_begin, to_cover_end;
-    ASSERT(scanf("%d %d", &to_cover_begin, &to_cover_end) == 2);
+    read_two_ints(&to_cover_begin, &to_cover_end);
     ASSERT(to_cover_begin < to_cover_end);
     to_cover_begin += TRANSLATION_OFFSET;
     to_cover_end += TRANSLATION_OFFSET;
