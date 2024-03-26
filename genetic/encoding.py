@@ -20,9 +20,9 @@ def main():
             interval = intervals[index]
             print(interval[0])
         else:
-            raise Exception("Invalid command")
+            raise SystemExit(f"Invalid command: {command}")
 
-def search(elem, intervals):
+def search(elem: float, intervals: list[tuple[float, float]]):
     l = 0
     r = len(intervals) - 1
     while l < r:

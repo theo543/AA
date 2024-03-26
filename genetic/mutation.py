@@ -1,15 +1,15 @@
 def mutate(chromosome: str, locations: list[int]) -> str:
-    chromosome = list(chromosome)
+    bits = list(chromosome)
     for x in locations:
 #        assert chromosome[x] in ['0', '1']
-        chromosome[x] = '1' if chromosome[x] == '0' else '0'
-    return ''.join(chromosome)
+        bits[x] = '1' if bits[x] == '0' else '0'
+    return ''.join(bits)
 
 def read_line() -> list[int]:
     return [int(token) for token in input().split()]
 
 def main():
-    [length, changes] = read_line()
+    [_length, _changes] = read_line()
     chromosome = input()
 #    assert length == len(chromosome)
     locations = read_line()
