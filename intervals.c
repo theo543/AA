@@ -52,13 +52,25 @@ static void read_intervals(int *intervals_end, int *intervals_index) {
 }
 
 static int choose_intervals(const int *intervals_end, const int *intervals_index, int *chosen_intervals, int cover_start, int cover_end) {
+    // We track the rightmost positions scanned and reachable.
+    // Everything to the left (inclusive) of reachable has been covered by intervals picked so far.
+    // Scan is the next position to scan for an interval that might be picked to extend beyond reachable.
+    // These aren't the same, since it's OK for intervals to overlap.
+    // Ex. after picking [0, 10], that doesn't mean we couldn't then pick [1, 100000], even though they overlap.
+    // After picking an interval, we don't jump to the end of it, we still scan everything in between.
+    // This is a pseudo-polynomial algorithm, but with the fixed input constraints, it's fine.
+    // If intervals has to be lines up, e.g. [0, 10], [11, 100], [101, 100000], then scan and reachable would be the same.
     int scan = 0;
-    int reachable = cover_start;
+    // Initialized at cover_start - 1 because we don't need to cover positions before cover_start, so we can treat them as already covered.
+    // This might equal -1 if cover_start is 0, but that's fine, scan will still be 0, so we won't actually access invalid memory.
+    int reachable = cover_start - 1;
     int chosen = 0;
     while(reachable < cover_end) {
         int best = reachable;
         int best_index = 0;
-        while(scan <= reachable) {
+        // The intervals don't have to overlap, i.e. we can have [1, 10], [11, 20], [21, 30], etc, not necessarily [1, 10], [10, 20], [20, 30], etc.
+        // So we scan up to reachable + 1, not just up to reachable.
+        while(scan <= (reachable + 1)) {
             if(intervals_end[scan] > best) {
                 best = intervals_end[scan];
                 best_index = intervals_index[scan];
