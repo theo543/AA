@@ -4,6 +4,8 @@ import subprocess
 import sys
 import time
 import pathlib
+import signal
+import typing
 
 MIN_INTERVAL_BEGIN = -100000
 MAX_INTERVAL_END = 100000
@@ -118,12 +120,28 @@ def run_one_test(input_file_path: pathlib.Path, test: IntervalProblem, solver_pa
 
     return mk_success(f"Correctly chose {output_len} intervals")
 
-def test_forever(solver_path: str, tests_dir: pathlib.Path):
-    while True:
+def test_forever(solver_path: str, tests_dir: pathlib.Path, tests_counter: str) -> typing.NoReturn:
+    signaled = False
+
+    def set_signaled():
+        nonlocal signaled
+        if signaled:
+            print("Received two keyboard interrupts, exiting immediately")
+            sys.exit(1)
+        signaled = True
+
+    signal.signal(signal.SIGINT, lambda _1, _2 : set_signaled())
+
+    while not signaled:
         test = generate_test_case()
-        test_nr, input_file_path = make_file_for_next_test(tests_dir, "test_counter.txt")
+        test_nr, input_file_path = make_file_for_next_test(tests_dir, tests_counter)
         result = run_one_test(input_file_path, test, solver_path)
         print(f"Test {test_nr}:")
+        if signaled and result.failed:
+            # Failure is probably due to subprocess inheriting the SIGINT signal
+            print("Canceled")
+            input_file_path.unlink()
+            break
         print(f"Elapsed: {result.elapsed_ns / 1e9:.3f} seconds")
 
         if result.failed:
@@ -143,12 +161,21 @@ def test_forever(solver_path: str, tests_dir: pathlib.Path):
             break
 
         print(f"Success: {result.message}")
+        print()
         input_file_path.unlink()
+
+    print("Testing stopped")
+    files = list(tests_dir.iterdir())
+    if len(files) == 1 and files[0].name == tests_counter:
+        print(f"No failing test files seem to be stored in {tests_dir}, removing it")
+    else:
+        print(f"Not removing {tests_dir}, it seems to contain files, probably failing tests")
+    sys.exit(0)
 
 def main():
     assert len(sys.argv) == 2
-    tests_dir = pathlib.Path("tests")
-    test_forever(sys.argv[1], tests_dir)
+    tests_dir = pathlib.Path("tests").absolute()
+    test_forever(sys.argv[1], tests_dir, "test_counter.txt")
 
 if __name__ == "__main__":
     main()
