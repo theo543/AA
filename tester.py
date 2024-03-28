@@ -59,13 +59,20 @@ def generate_test_case(params: TestGenerationParams) -> IntervalProblem:
     return IntervalProblem(cover_begin, cover_end, intervals)
 
 def check_is_possible(p : IntervalProblem) -> bool:
-    bools = [False for _ in range(p.cover_begin, p.cover_end + 1)]
-    for (left, right) in p.intervals:
-        left = max(left, p.cover_begin)
-        right = min(right, p.cover_end)
-        for i in range(left - p.cover_begin, right - p.cover_begin + 1):
-            bools[i] = True
-    return all(bools)
+    rightmost_covered = p.cover_begin - 1
+    intervals = sorted(p.intervals)
+    scan = 0
+    for cover in range(p.cover_begin, p.cover_end + 1):
+        if cover <= rightmost_covered:
+            continue
+        while True:
+            if scan >= len(intervals) or intervals[scan][0] > cover:
+                return False
+            if cover <= intervals[scan][1]:
+                rightmost_covered = intervals[scan][1]
+                break
+            scan += 1
+    return True
 
 def make_file_for_next_test(tests_folder: pathlib.Path, counter_file_name: str) -> tuple[int, pathlib.Path]:
     counter_file = tests_folder / counter_file_name
