@@ -6,10 +6,7 @@ import time
 import pathlib
 import signal
 import typing
-
-MIN_INTERVAL_BEGIN = -100000
-MAX_INTERVAL_END = 100000
-MAX_INTERVAL_AMOUNT = 100000
+from argparse import ArgumentParser
 
 @dataclass
 class IntervalProblem:
@@ -28,24 +25,47 @@ def format_problem(pb: IntervalProblem) -> str:
     test_txt += '\n'
     return test_txt
 
-def generate_test_case() -> IntervalProblem:
-    cover_begin = random.randint(MIN_INTERVAL_BEGIN, MIN_INTERVAL_BEGIN + 100)
-    cover_end = random.randint(MAX_INTERVAL_END - 100, MAX_INTERVAL_END)
-    interval_amount = random.randint(1, MAX_INTERVAL_AMOUNT)
+@dataclass
+class TestGenerationParams:
+    min_interval_begin: int
+    max_interval_end: int
+    max_interval_amount: int
+    max_interval_length: int
+    max_cover_len: bool
+    def __post_init__(self):
+        if self.min_interval_begin >= self.max_interval_end:
+            raise ValueError("min_interval_begin must be less than max_interval_end")
+        if self.max_interval_amount <= 0:
+            raise ValueError("max_interval_amount must be positive")
+        if self.max_interval_length <= 0:
+            raise ValueError("max_interval_length must be positive")
+
+def generate_test_case(params: TestGenerationParams) -> IntervalProblem:
+    min_val = params.min_interval_begin
+    max_val = params.max_interval_end
+    max_amount = params.max_interval_amount
+    max_len = params.max_interval_length
+    cover_begin = min_val
+    cover_end = max_val
+    if not params.max_cover_len:
+        cover_begin += random.randint(0, (max_val - min_val) // 10)
+        cover_end -= random.randint(0, (max_val - min_val) // 10)
+    interval_amount = random.randint(1, max_amount)
     intervals: list[tuple[int, int]] = []
     for _ in range(interval_amount):
-        x = random.randint(MIN_INTERVAL_BEGIN, MAX_INTERVAL_END - 1)
-        y = x + round(abs(random.normalvariate(100, 100))) + 1
-        y = min(y, MAX_INTERVAL_END)
+        x = random.randint(min_val, max_val - 1)
+        y = random.randint(x + 1, min(x + max_len, max_val))
         intervals.append((x, y))
     return IntervalProblem(cover_begin, cover_end, intervals)
 
 def check_is_possible(p : IntervalProblem) -> bool:
-    bools = [False for _ in range(MIN_INTERVAL_BEGIN, MAX_INTERVAL_END + 1)]
+    bools = [False for _ in range(p.cover_begin, p.cover_end + 1)]
     for (left, right) in p.intervals:
-        for i in range(left - MIN_INTERVAL_BEGIN, right - MIN_INTERVAL_BEGIN + 1):
+        left = max(left, p.cover_begin)
+        right = min(right, p.cover_end)
+        for i in range(left - p.cover_begin, right - p.cover_begin + 1):
             bools[i] = True
-    return all(bools[p.cover_begin - MIN_INTERVAL_BEGIN:p.cover_end - MIN_INTERVAL_BEGIN + 1])
+    return all(bools)
 
 def make_file_for_next_test(tests_folder: pathlib.Path, counter_file_name: str) -> tuple[int, pathlib.Path]:
     counter_file = tests_folder / counter_file_name
@@ -73,7 +93,7 @@ class TestResult:
     message: str
     failed: bool
 
-def run_one_test(input_file_path: pathlib.Path, test: IntervalProblem, solver_path: str) -> TestResult:
+def run_one_test(input_file_path: pathlib.Path, test: IntervalProblem, solver_path: pathlib.Path) -> TestResult:
     input_file_path.write_text(format_problem(test), encoding='ascii')
 
     with open(input_file_path, 'r', encoding='ascii') as input_file_handle:
@@ -120,7 +140,7 @@ def run_one_test(input_file_path: pathlib.Path, test: IntervalProblem, solver_pa
 
     return mk_success(f"Correctly chose {output_len} intervals")
 
-def test_forever(solver_path: str, tests_dir: pathlib.Path, tests_counter: str) -> typing.NoReturn:
+def test_forever(solver_path: pathlib.Path, tests_dir: pathlib.Path, tests_counter: str, params: TestGenerationParams, test_limit: int) -> typing.NoReturn:
     signaled = False
 
     def set_signaled():
@@ -132,8 +152,13 @@ def test_forever(solver_path: str, tests_dir: pathlib.Path, tests_counter: str) 
 
     signal.signal(signal.SIGINT, lambda _1, _2 : set_signaled())
 
+    tests = 0
     while not signaled:
-        test = generate_test_case()
+        tests += 1
+        if 0 < test_limit < tests:
+            print(f"Reached test limit of {test_limit}, stopping")
+            break
+        test = generate_test_case(params)
         test_nr, input_file_path = make_file_for_next_test(tests_dir, tests_counter)
         result = run_one_test(input_file_path, test, solver_path)
         print(f"Test {test_nr}:")
@@ -166,16 +191,33 @@ def test_forever(solver_path: str, tests_dir: pathlib.Path, tests_counter: str) 
 
     print("Testing stopped")
     files = list(tests_dir.iterdir())
-    if len(files) == 1 and files[0].name == tests_counter:
+    if (len(files) == 1 and files[0].name == tests_counter) or len(files) == 0:
         print(f"No failing test files seem to be stored in {tests_dir}, removing it")
+        if len(files) == 1:
+            print(f"Removing test number counter file {files[0]}")
+            files[0].unlink()
+        tests_dir.rmdir()
     else:
         print(f"Not removing {tests_dir}, it seems to contain files, probably failing tests")
     sys.exit(0)
 
 def main():
-    assert len(sys.argv) == 2
-    tests_dir = pathlib.Path("tests").absolute()
-    test_forever(sys.argv[1], tests_dir, "test_counter.txt")
+    ap = ArgumentParser()
+    ap.add_argument("--solver", help="Path to the solver executable", type=str, default="intervals")
+    ap.add_argument("--test_dir", help="Path to the directory where tests are stored", type=str, default="tests")
+    ap.add_argument("--min_interval_begin", help="Minimum value for interval begin", type=int, default=-100000)
+    ap.add_argument("--max_interval_end", help="Maximum value for interval end", type=int, default=100000)
+    ap.add_argument("--max_interval_amount", help="Maximum amount of intervals", type=int, default=100000)
+    ap.add_argument("--max_interval_length", help="Maximum length of an interval", type=int, default=200)
+    ap.add_argument("--max_cover", help="Always test covering the entire interval", action="store_true", default=False)
+    ap.add_argument("--test_limit", help="Maximum amount of tests to run (0 = unlimited)", type=int, default=0)
+    args = ap.parse_args()
+    print(args)
+    params = TestGenerationParams(args.min_interval_begin, args.max_interval_end, args.max_interval_amount, args.max_interval_length, args.max_cover)
+    tests_dir = pathlib.Path(args.test_dir).absolute()
+    solver = pathlib.Path(args.solver).absolute()
+    test_limit: int = args.test_limit
+    test_forever(solver, tests_dir, "test_counter.txt", params, test_limit)
 
 if __name__ == "__main__":
     main()
