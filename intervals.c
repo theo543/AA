@@ -71,7 +71,7 @@ static int choose_intervals(const int *intervals_end, const int *intervals_index
         // The intervals don't have to overlap, i.e. we can have [1, 10], [11, 20], [21, 30], etc, not necessarily [1, 10], [10, 20], [20, 30], etc.
         // So we scan up to reachable + 1, not just up to reachable.
         while(scan <= (reachable + 1)) {
-            if(intervals_end[scan] > best) {
+            if(intervals_end[scan] > best && intervals_index[scan] != 0) {
                 best = intervals_end[scan];
                 best_index = intervals_index[scan];
             }
