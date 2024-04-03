@@ -7,6 +7,7 @@ from itertools import accumulate
 from textwrap import wrap
 from secrets import randbits
 from pprint import pprint
+from typing import Sequence
 
 @dataclass
 class Configuration:
@@ -135,6 +136,13 @@ def generate_population(amount: int, rng: Random, d: Discretize) -> list[Chromos
 def format_chromosome(c: Chromosome, poly: Polynomial) -> str:
     return f"(encoded={c.encoded}, value={c.value}, fitness={poly.eval(c.value)})"
 
+def print_list_wrapped(title: str, items: Sequence[object], indent: str = '    '):
+    unwrapped = ', '.join(map(str, items))
+    lines = wrap(unwrapped, initial_indent=indent, subsequent_indent=indent)
+    print(f"{title}: [")
+    print('\n'.join(lines))
+    print("]")
+
 def main():
     cfg = parse_args()
     pprint(cfg)
@@ -165,10 +173,7 @@ def main():
             print("Selection probabilities:")
             for i, p in enumerate(s_data.prob):
                 print(f"Chromosome {pad(i)}: P={p}")
-            list_long_line = f"Cumulative probabilities: {s_data.cumulative_prob}"
-            list_lines = wrap(list_long_line, subsequent_indent='    ')
-            list_paragraph = '\n'.join(list_lines)
-            print(list_paragraph)
+            print_list_wrapped("Cumulative probabilities", s_data.cumulative_prob)
         selected = select_chromosomes(amount_to_select, population, s_data.cumulative_prob, rng, verbose)
         if verbose:
             print()
@@ -186,7 +191,7 @@ def main():
             if cross:
                 to_crossover.append(index)
             if verbose:
-                print(f"{pad(index)}: {chromo.encoded} u={u} ", end="")
+                print(f"{pad(index)}: {chromo.encoded} u={u}", end="")
                 print(" | Will crossover" if cross else "")
         rng.shuffle(to_crossover)
         if len(to_crossover) % 2 == 1:
@@ -212,7 +217,7 @@ def main():
         selected = [mutate(c, cfg.mutation_chance, rng, d) for c in selected]
         diff = [i for i in range(len(selected)) if before_mutation[i] != selected[i].encoded]
         if verbose:
-            print(f"Changed chromosomes: {diff}")
+            print_list_wrapped("Changed chromosomes", diff)
             print("Chromosomes after mutation:")
             for i, c in enumerate(selected):
                 print(f"{pad(i)}: {format_chromosome(c, poly)}")
