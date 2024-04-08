@@ -58,7 +58,7 @@ class Discretize:
         bits = ceil(log2((end - begin) * (10 ** precision)))
         step = (end - begin) / (2 ** bits)
         self._bits = bits
-        self._steps = [step * (i + 1) for i in range(2 ** bits)]
+        self._steps = [step * (i + 1) + begin for i in range(2 ** bits)]
     def encode(self, nr: float) -> str:
         index = search(nr, self._steps)
         return f"{index:0{self._bits}b}"
@@ -101,6 +101,9 @@ def select_gen_data(p: Polynomial, population: list[Chromosome]) -> SelectionDat
     total_fitness = sum(fitness)
     prob = [f / total_fitness for f in fitness]
     cumulative_prob = list(accumulate(prob))
+    # fix rounding errors
+    assert 0.99 <= cumulative_prob[-1] <= 1.01
+    cumulative_prob[-1] = 1.0
     return SelectionData(prob, cumulative_prob)
 
 def select_chromosomes(amount_to_select: int, population: list[Chromosome], cumulative_prob: list[float], rng: Random, verbose: bool) -> list[Chromosome]:
