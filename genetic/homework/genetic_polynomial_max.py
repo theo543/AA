@@ -33,7 +33,7 @@ class Configuration:
         assert self.generations >= 1
 
 def parse_args() -> Configuration:
-    ap = ArgumentParser("genetics-polynomial-max")
+    ap = ArgumentParser("python genetics_polynomial_max.py")
     ap.add_argument("config_JSON_path", type=str, default="genetic_polynomial_max.json", nargs='?')
     config: str = ap.parse_args().config_JSON_path
     with open(config, "r", encoding='utf-8') as f:
