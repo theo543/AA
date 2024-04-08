@@ -7,6 +7,7 @@ Configuration(population_size=50,
               mutation_chance=0.1,
               generations=20,
               random_seed=2024,
+              verbose_first_generation=True,
               copy_best_to_new_generation=True)
 Generation 0 (initial population):
  1: (encoded=111100001010111, value=18.8037109375, fitness=-332.77583408355713)

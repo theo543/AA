@@ -12,5 +12,6 @@
     "mutation_chance": 0.1,
     "generations": 20,
     "copy_best_to_new_generation": true,
+    "verbose_first_generation": true,
     "random_seed": 2024
 }

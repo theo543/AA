@@ -20,6 +20,7 @@ class Configuration:
     mutation_chance: float
     generations: int
     random_seed: int
+    verbose_first_generation: bool
     copy_best_to_new_generation: bool
 
     def __post_init__(self):
@@ -150,7 +151,7 @@ def main():
     d = Discretize(cfg.domain_start, cfg.domain_end, cfg.decimal_precision)
     rng = Random(cfg.random_seed if cfg.random_seed != 0 else randbits(64))
     population = generate_population(cfg.population_size, rng, d)
-    verbose = True
+    verbose = cfg.verbose_first_generation
     print("Generation 0 (initial population):")
     idx_pad = ceil(log10(len(population)))
     def pad(index: int) -> str:
