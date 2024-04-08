@@ -311,15 +311,26 @@ def main():
         for i in range(0, len(to_crossover) - 1, 2):
             s = selected
             x, y = to_crossover[i], to_crossover[i + 1]
-            if verbose:
-                print(f"Crossover {x} with {y}:")
-                print(f" {s[x].encoded} {s[y].encoded} ")
+            orig_x, orig_y = s[x].encoded, s[y].encoded
             s[x], s[y], cut = crossover(s[x], s[y], rng, d)
+            def print_with_cut(s: str, index: int, cut: int):
+                with_cut = s[:cut] + '|' + s[cut:]
+                print(f"  {pad(index)}: {with_cut}")
             if verbose:
-                print(f" Cut = {cut}")
-                print(f" {s[x].encoded}, {s[y].encoded}")
+                print(f"Crossing {x} and {y} at cut point {cut}:")
+                print(" Before:")
+                print_with_cut(orig_x, x, cut)
+                print_with_cut(orig_y, y, cut)
+                print(" After:")
+                print_with_cut(s[x].encoded, x, cut)
+                print_with_cut(s[y].encoded, y, cut)
 
         if verbose:
+            print()
+            print("After crossover:")
+            for i, c in enumerate(selected):
+                print(f"{pad(i)}: {format_chromosome(c, poly)}")
+
             print()
             print(f"Mutation probability = {cfg.mutation_chance}")
         before_mutation = [c.encoded for c in selected]
