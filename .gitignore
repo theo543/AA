@@ -7,3 +7,10 @@ cmake-build-*
 build
 *.exe
 
+# TeX
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.synctex.gz
+*.synctex\(busy\)
