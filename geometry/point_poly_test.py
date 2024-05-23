@@ -12,10 +12,14 @@ def random_polygon_integer_points(n: int = 1000, scale: int = 1000000) -> Polygo
     while True:
         poly = random_polygon(n)
         poly_scaled_integer = [(int(x*scale), int(y*scale)) for x, y in poly]
+        if len(poly_scaled_integer) != len(set(poly_scaled_integer)):
+            print("rejection of polygon with duplicate points")
+            continue
         poly_shapely = Polygon(poly_scaled_integer)
-        if poly_shapely.is_valid and poly_shapely.area > 0:
-            return poly_shapely
-        print("rejection at polygon generation")
+        if not (poly_shapely.is_valid and poly_shapely.area > 0):
+            print("rejection of invalid polygon")
+            continue
+        return poly_shapely
 
 def shapely_point_to_int_tuple(point: Point) -> tuple[int, int]:
     point_int = (int(point.x), int(point.y))
@@ -24,6 +28,8 @@ def shapely_point_to_int_tuple(point: Point) -> tuple[int, int]:
 
 def random_point_in_polygon(poly: Polygon) -> tuple[tuple[int, int], str]:
     bounds = cast(tuple[float, float, float, float], poly.bounds)
+    def not_in_poly(point: Point) -> bool:
+        return not poly.contains(point) and not poly.touches(point)
     def random_in_range(min_x: int | float, min_y: int | float, max_x: int | float, max_y: int | float) -> Point:
         return Point(choice(range(int(min_x), int(max_x))), choice(range(int(min_y), int(max_y))))
     def random_in_aabb() -> Point:
@@ -32,7 +38,7 @@ def random_point_in_polygon(poly: Polygon) -> tuple[tuple[int, int], str]:
     def random_near() -> Point:
         while True:
             point = random_in_aabb()
-            if not poly.contains(point):
+            if not_in_poly(point):
                 return point
     def random_inside() -> Point:
         while True:
@@ -46,7 +52,7 @@ def random_point_in_polygon(poly: Polygon) -> tuple[tuple[int, int], str]:
             y_len = max_y - min_y
             div = 20 # don't go too far because it makes the plot ugly
             point = random_in_range(min_x - x_len // div, min_y - y_len // div, max_x + x_len // div, max_y + y_len // div)
-            if not poly.contains(point):
+            if not_in_poly(point):
                 return point
 
     choices = [(random_near, "OUTSIDE"), (random_far, "OUTSIDE")] + [(random_inside, "INSIDE")] * 2
