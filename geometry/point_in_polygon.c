@@ -4,7 +4,8 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-typedef int32_t i32;
+typedef uint32_t u32;
+typedef uint64_t u64;
 typedef int64_t i64;
 #define I64 "%" PRId64
 #define MAX_POINTS 1002
@@ -24,9 +25,9 @@ static bool in_segment(point a, point b, point p) {
     return true;
 }
 
-static i32 random(void) {
-    const i64 MUL = 3202034522624059733, INC = 5340424991;
-    static i64 state = 1;
+static u32 random(void) {
+    const u64 MUL = 3202034522624059733, INC = 5340424991;
+    static u64 state = 1;
     state = ((state * MUL) + INC);
     return state >> 32;
 }
@@ -45,8 +46,8 @@ int main(void) {
         if(poly[i].y > max_y) max_y = poly[i].y;
         if(poly[i].y < min_y) min_y = poly[i].y;
     }
-    n++;
     poly[n] = poly[0];
+    n++;
 
     i64 m;
     scanf(I64, &m);
@@ -65,9 +66,18 @@ int main(void) {
                 count = -1;
                 break;
             }
-            i64 ori_1 = det(p, distant, poly[i - 1]);
-            i64 ori_2 = det(p, distant, poly[i]);
-            if(ori_1 == 0 || ori_2 == 0) {
+            point A_1 = p;
+            point A_2 = distant;
+            point B_1 = poly[i - 1];
+            point B_2 = poly[i];
+            // segment intersection check using orientation
+            // if any orientation returns 0 we randomly move the distant point and try again
+            // in order for two segments to intersect, A_1 and A_2 must be on different sides of B_1B_2, AND the other way around
+            i64 ori_1 = det(B_1, B_2, A_1);
+            i64 ori_2 = det(B_1, B_2, A_2);
+            i64 ori_3 = det(A_1, A_2, B_1);
+            i64 ori_4 = det(A_1, A_2, B_2);
+            if(ori_1 == 0 || ori_2 == 0 || ori_3 == 0 || ori_4 == 0) {
                 restart_count++;
                 if(restart_count > n * 2) {
                     fprintf(stderr, "Too many restarts\n");
@@ -79,7 +89,7 @@ int main(void) {
                 count = 0;
                 continue;
             }
-            count += (ori_1 > 0) != (ori_2 > 0);
+            count += ((ori_1 > 0) != (ori_2 > 0)) && ((ori_3 > 0) != (ori_4 > 0));
         }
         if(count == -1) {
             printf("BOUNDARY\n");
