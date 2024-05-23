@@ -14,3 +14,5 @@ build
 *.log
 *.synctex.gz
 *.synctex\(busy\)
+
+.venv
