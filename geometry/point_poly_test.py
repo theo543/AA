@@ -1,11 +1,11 @@
 from pathlib import Path
-from random import choice, seed
+from random import choice, seed, random
 from subprocess import run
 from fractions import Fraction
 from sys import argv, exit as sys_exit
 from typing import cast
 from polygenerator import random_polygon
-from shapely.geometry import Polygon, Point
+from shapely.geometry import Polygon, Point, LineString
 import matplotlib.pyplot as plt
 
 def random_polygon_integer_points(n: int = 1000, scale: int = 1000000) -> Polygon:
@@ -40,6 +40,17 @@ def random_point_in_polygon(poly: Polygon) -> tuple[tuple[int, int], str]:
             point = random_in_aabb()
             if not_in_poly(point):
                 return point
+    def random_very_near() -> Point:
+        while True:
+            vertex_i = choice(range(len(poly.exterior.coords) - 1))
+            a = poly.exterior.coords[vertex_i]
+            b = poly.exterior.coords[vertex_i + 1]
+            line = LineString([a, b])
+            p = line.interpolate(random())
+            nudge = range(-1, 2)
+            p = Point(int(p.x) + choice(nudge), int(p.y) + choice(nudge))
+            if not_in_poly(p):
+                return p
     def random_inside() -> Point:
         while True:
             point = random_in_aabb()
@@ -55,7 +66,7 @@ def random_point_in_polygon(poly: Polygon) -> tuple[tuple[int, int], str]:
             if not_in_poly(point):
                 return point
 
-    choices = [(random_near, "OUTSIDE"), (random_far, "OUTSIDE")] + [(random_inside, "INSIDE")] * 2
+    choices = [(random_near, "OUTSIDE"), (random_far, "OUTSIDE"), (random_very_near, "OUTSIDE")] + [(random_inside, "INSIDE")] * 3
     (func, is_inside) = choice(choices)
     return (shapely_point_to_int_tuple(func()), is_inside)
 
@@ -85,20 +96,19 @@ def plot_output(out: Path, poly: Polygon, points: list[tuple[tuple[int, int], st
     plt.gca().set_aspect('equal')
 
     for ((x, y), _), result in zip(points, output.split('\n')):
-        markersize = 4
-        points_fmt = 'ro'
+        markersize = 2
+        points_fmt = 'rx'
         if 'BOUNDARY' in result:
             points_fmt = 'bx'
-            markersize = 2
         if 'INSIDE' in result:
-            points_fmt = 'go'
+            points_fmt = 'gx'
         plt.plot(x, y, points_fmt, markersize=markersize)
 
     xs = [x for x, _ in poly.exterior.coords]
     ys = [y for _, y in poly.exterior.coords]
     plt.plot(xs, ys, 'b-', linewidth=1)
 
-    plt.savefig(out, bbox_inches='tight', pad_inches=0.1)
+    plt.savefig(out, bbox_inches='tight', pad_inches=0.1, dpi=1200)
 
 def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]]) -> tuple[str, str]:
     poly_point_nr = len(poly.exterior.coords) - 1
@@ -113,7 +123,7 @@ def run_test(solver_path: Path, subtests: int = 10000):
     expected_output_path = Path("expected_output.txt")
     input_path = Path("input.txt")
     actual_output_path = Path("actual_output.txt")
-    img_path = Path("polygon.png")
+    img_path = Path("polygon.svg")
 
     poly = random_polygon_integer_points()
     print(f"Generated polygon with {len(poly.exterior.coords) - 1} points.")
