@@ -17,13 +17,15 @@ static i64 det(point prev2, point prev1, point this) {
     return (prev1.x - prev2.x) * (this.y - prev2.y) - (this.x - prev2.x) * (prev1.y - prev2.y);
 }
 
+static bool in_interval(i64 a, i64 b, i64 p) {
+    if(a > b) return in_interval(b, a, p);
+    return a <= p && p <= b;
+}
+
 static bool in_segment(point a, point b, point p) {
     if(det(a, b, p) != 0) return false;
-    i64 dot = (p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y);
-    if(dot < 0) return false;
-    i64 ba_squared = (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y);    
-    if(dot > ba_squared) return false;
-    return true;
+    if(a.x == b.x) return in_interval(a.y, b.y, p.y);
+    return in_interval(a.x, b.x, p.x);
 }
 
 static u32 random(void) {
