@@ -216,13 +216,38 @@ def plot_output(out: Path, poly: Polygon, points: list[tuple[tuple[int, int], st
     print("Saving plot...")
     plt.savefig(out, bbox_inches='tight', pad_inches=0.1, dpi=1200)
 
-def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]]) -> tuple[str, str]:
+def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]], extra_points: int) -> tuple[str, str]:
     poly_point_nr = len(poly.exterior.coords) - 1
     coords = [shapely_point_to_int_tuple(Point(pt)) for pt in poly.exterior.coords[:-1]]
     coords_rotation = randint(0, len(coords) - 1)
     coords = coords[coords_rotation:] + coords[:coords_rotation]
     if randint(0, 1):
         coords = coords[::-1]
+    def in_range(x: int, a: int, b: int) -> bool:
+        if a <= b:
+            return a <= x <= b
+        return b <= x <= a
+    # insert redundant points to test it doesn't break the solver
+    for i in tqdm(range(1, len(coords)), desc="Inserting collinear points in edges", total=extra_points) if extra_points > 0 else []:
+        if extra_points == 0:
+            break
+        a = coords[i - 1]
+        b = coords[i]
+        if b[0] == a[0]:
+            x = a[0] + 1
+            y = a[1]
+        elif b[1] == a[1]:
+            x = a[0]
+            y = a[1] + 1
+        else:
+            ratio = Fraction(b[1] - a[1], b[0] - a[0])
+            x = a[0] + ratio.denominator
+            y = a[1] + ratio.numerator
+        if poly.touches(Point(x, y)) and in_range(x, a[0], b[0]) and in_range(y, a[1], b[1]):
+            # only add it if it didn't go past the end of the edge
+            coords.insert(i, (x, y))
+            poly_point_nr += 1
+            extra_points -= 1
     poly_point_coords_str = '\n'.join([f'{x} {y}' for x, y in coords])
     challenge_points_nr = len(points)
     challenge_points_str = '\n'.join([f'{p[0]} {p[1]}' for (p, _) in points])
@@ -230,7 +255,7 @@ def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]]) -> tup
     expected_output = '\n'.join([is_inside for (_, is_inside) in points])
     return solver_input, expected_output
 
-def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: int, plot: bool, boundary: bool):
+def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: int, plot: bool, boundary: bool, extra_points: int):
     expected_output_path = Path("expected_output.txt")
     input_path = Path("input.txt")
     actual_output_path = Path("actual_output.txt")
@@ -241,7 +266,7 @@ def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: in
     points = [random_point_in_polygon(poly) for _ in tqdm(range(subtests), desc="Generating random points")]
     if boundary:
         points += all_points_on_edge(poly)
-    solver_input, expected_output = format_data(poly, points)
+    solver_input, expected_output = format_data(poly, points, extra_points)
     expected_output_path.write_text(expected_output, encoding='ascii')
     input_path.write_text(solver_input, encoding='ascii')
     print("Running solver...")
@@ -274,7 +299,7 @@ def main():
                     help="Number of random test points to generate (the points on the edges are generated deterministically)")
     convex = ap.add_mutually_exclusive_group()
     convex.add_argument("--convex", action="store_true", default=False,
-                    help="Generate only convex polygons " + 
+                    help="Generate only convex polygons " +
                     "(can't generate polygons with 10^5 vertices with bounds 10^9 due to known issue, use deterministic convex instead for that)")
     convex.add_argument("--det-convex", action="store_true", default=False,
                     help="Generate only deterministic convex polygons")
@@ -282,6 +307,9 @@ def main():
                     help="Number of tests to run")
     ap.add_argument("--disable-boundary", action="store_false", default=True,
                     help="Disable testing all points on the boundary (might be necessary for polygons with very many edges)")
+    ap.add_argument("--extra-points", type=int, default=0,
+                    help="Number of extra points to insert in the polygon edges, up to one per edge " +
+                    "(will add points to input, make sure it doesn't overflow the solver's limit)")
     args = ap.parse_args()
     tests = cast(int, args.tests)
     n = cast(int, args.n)
@@ -291,6 +319,7 @@ def main():
     subtests = cast(int, args.subtests)
     solver_path = cast(Path, args.solver_path)
     boundary = cast(bool, args.disable_boundary)
+    extra_points = cast(int, args.extra_points)
     plot = True
     poly_type = "deterministic_convex" if det_convex else "convex" if convex else "concave"
     if tests > 1:
@@ -298,7 +327,7 @@ def main():
         print("Plotting is disabled for multiple tests due to slow performance.")
     for _ in range(tests):
         seed(None)
-        run_test(n, bounds, poly_type, solver_path, subtests, plot, boundary)
+        run_test(n, bounds, poly_type, solver_path, subtests, plot, boundary, extra_points)
 
 if __name__ == "__main__":
     main()
