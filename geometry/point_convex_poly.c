@@ -16,8 +16,8 @@ static bool point_eq(point a, point b) {
     return a.x == b.x && a.y == b.y;
 }
 
-static i64 det(point prev2, point prev1, point this) {
-    return (prev1.x - prev2.x) * (this.y - prev2.y) - (this.x - prev2.x) * (prev1.y - prev2.y);
+static i64 det(point a, point b, point p) {
+    return (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y);
 }
 
 static bool in_interval(i64 a, i64 b, i64 p) {
