@@ -4,7 +4,7 @@ from subprocess import run
 from fractions import Fraction
 from argparse import ArgumentParser
 from typing import cast
-from math import atan2, log10
+from math import atan2, log10, cos, sin, pi
 from polygenerator import random_polygon
 from shapely.geometry import Polygon, Point, LineString
 import matplotlib.pyplot as plt
@@ -93,14 +93,18 @@ def random_convex_polygon(n: int, max_absolute_coord: int) -> list[tuple[int, in
         print(f"Generated polygon with max abs coord {max_abs}, multiplying max abs coord by {factor} and retrying " +
               f"({ratio} times too big, known issue of convex polygon generator)")
 
-def random_polygon_integer_points(convex: bool, n: int, max_absolute_coord: int) -> Polygon:
+def random_polygon_integer_points(poly_type: str, n: int, max_absolute_coord: int) -> Polygon:
     while True:
-        if convex:
+        if poly_type == "convex":
             poly_scaled_integer = random_convex_polygon(n, max_absolute_coord)
-        else:
+        elif poly_type == "deterministic_convex":
+            poly_scaled_integer = deterministic_convex_polygon(n, max_absolute_coord)
+        elif poly_type == "concave":
             poly = random_polygon(n)
             poly_scaled_integer = [(int(x*max_absolute_coord), int(y*max_absolute_coord)) for x, y in poly]
             assert poly_max(poly_scaled_integer) <= max_absolute_coord
+        else:
+            raise ValueError("invalid polygon type")
         if len(poly_scaled_integer) != len(set(poly_scaled_integer)):
             print("rejection of polygon with duplicate points")
             continue
@@ -109,6 +113,17 @@ def random_polygon_integer_points(convex: bool, n: int, max_absolute_coord: int)
             print("rejection of invalid polygon")
             continue
         return poly_shapely
+
+def deterministic_convex_polygon(n: int, max_absolute_coord: int) -> list[tuple[int, int]]:
+    poly = []
+    for i in range(n):
+        angle = 2 * i * pi / n
+        x = int(max_absolute_coord * cos(angle))
+        y = int(max_absolute_coord * sin(angle))
+        poly.append((x, y))
+    assert is_convex(poly)
+    assert poly_max(poly) <= max_absolute_coord
+    return poly
 
 def shapely_point_to_int_tuple(point: Point) -> tuple[int, int]:
     point_int = (int(point.x), int(point.y))
@@ -210,13 +225,13 @@ def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]]) -> tup
     expected_output = '\n'.join([is_inside for (_, is_inside) in points])
     return solver_input, expected_output
 
-def run_test(n: int, scale: int, convex: bool, solver_path: Path, subtests: int, plot: bool, boundary: bool):
+def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: int, plot: bool, boundary: bool):
     expected_output_path = Path("expected_output.txt")
     input_path = Path("input.txt")
     actual_output_path = Path("actual_output.txt")
     img_path = Path("polygon.svg")
 
-    poly = random_polygon_integer_points(convex, n, scale)
+    poly = random_polygon_integer_points(poly_type, n, scale)
     print(f"Generated polygon with {len(poly.exterior.coords) - 1} points.")
     points = [random_point_in_polygon(poly) for _ in tqdm(range(subtests), desc="Generating random points")]
     if boundary:
@@ -252,8 +267,12 @@ def main():
                     help="Max absolute value of the coordinates")
     ap.add_argument("--subtests", type=int, default=10000,
                     help="Number of random test points to generate (the points on the edges are generated deterministically)")
-    ap.add_argument("--convex", action="store_true", default=False,
-                    help="Generate only convex polygons")
+    convex = ap.add_mutually_exclusive_group()
+    convex.add_argument("--convex", action="store_true", default=False,
+                    help="Generate only convex polygons " + 
+                    "(can't generate polygons with 10^5 vertices with bounds 10^9 due to known issue, use deterministic convex instead for that)")
+    convex.add_argument("--det-convex", action="store_true", default=False,
+                    help="Generate only deterministic convex polygons")
     ap.add_argument("--tests", type=int, default=1,
                     help="Number of tests to run")
     ap.add_argument("--disable-boundary", action="store_false", default=True,
@@ -263,16 +282,18 @@ def main():
     n = cast(int, args.n)
     bounds = cast(int, args.bounds)
     convex = cast(bool, args.convex)
+    det_convex = cast(bool, args.det_convex)
     subtests = cast(int, args.subtests)
     solver_path = cast(Path, args.solver_path)
     boundary = cast(bool, args.disable_boundary)
     plot = True
+    poly_type = "deterministic_convex" if det_convex else "convex" if convex else "concave"
     if tests > 1:
         plot = False
         print("Plotting is disabled for multiple tests due to slow performance.")
     for _ in range(tests):
         seed(None)
-        run_test(n, bounds, convex, solver_path, subtests, plot, boundary)
+        run_test(n, bounds, poly_type, solver_path, subtests, plot, boundary)
 
 if __name__ == "__main__":
     main()
