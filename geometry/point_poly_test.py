@@ -218,7 +218,12 @@ def plot_output(out: Path, poly: Polygon, points: list[tuple[tuple[int, int], st
 
 def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]]) -> tuple[str, str]:
     poly_point_nr = len(poly.exterior.coords) - 1
-    poly_point_coords_str = '\n'.join([f'{x} {y}' for x, y in [shapely_point_to_int_tuple(Point(pt)) for pt in poly.exterior.coords[:-1]]])
+    coords = [shapely_point_to_int_tuple(Point(pt)) for pt in poly.exterior.coords[:-1]]
+    coords_rotation = randint(0, len(coords) - 1)
+    coords = coords[coords_rotation:] + coords[:coords_rotation]
+    if randint(0, 1):
+        coords = coords[::-1]
+    poly_point_coords_str = '\n'.join([f'{x} {y}' for x, y in coords])
     challenge_points_nr = len(points)
     challenge_points_str = '\n'.join([f'{p[0]} {p[1]}' for (p, _) in points])
     solver_input = f'{poly_point_nr}\n{poly_point_coords_str}\n{challenge_points_nr}\n{challenge_points_str}'
