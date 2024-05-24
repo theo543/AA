@@ -89,20 +89,17 @@ int main(void) {
         if(poly[i].x < min_x) min_x = poly[i].x;
         if(poly[i].y > max_y) max_y = poly[i].y;
         if(poly[i].y < min_y) min_y = poly[i].y;
-    }
-
-    bool wrong_order = false;
-    for(int i = 3;i < n;i++) {
-        i64 det_ = det(poly[i - 2], poly[i - 1], poly[i]);
-        if(det_ < 0) {
-            wrong_order = true;
-            break;
-        } else if(det_ > 0) {
-            break;
+        if(i > 1 && det(poly[i - 2], poly[i - 1], poly[i]) == 0) {
+            // colinear points break this algorithm for some reason
+            // the middle point is a redundant colinear point
+            poly[i - 1] = poly[i];
+            i--;
+            n--;
+            continue;
         }
-        // if the points are colinear (i.e. redundant vertices), need to check more
     }
-    if(wrong_order) {
+    if(det(poly[0], poly[1], poly[2]) < 0) {
+        // wrong order, this algorithm expects the opposite
         // reverse in place
         for(i64 l = 0, r = n - 1;l < r;l++, r--) {
             point temp = poly[l];
