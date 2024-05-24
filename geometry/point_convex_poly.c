@@ -12,6 +12,10 @@ typedef int64_t i64;
 typedef struct point { i64 x, y; } point;
 typedef enum result { INSIDE, OUTSIDE, BOUNDARY } result;
 
+static bool point_eq(point a, point b) {
+    return a.x == b.x && a.y == b.y;
+}
+
 static i64 det(point prev2, point prev1, point this) {
     return (prev1.x - prev2.x) * (this.y - prev2.y) - (this.x - prev2.x) * (prev1.y - prev2.y);
 }
@@ -28,6 +32,8 @@ static bool in_segment(point a, point b, point p) {
 }
 
 // in_segment converted to a result for convenience
+// only valid when the segment is an edge of the polygon!
+// not used for the dividing line
 static result in_segment_r(point a, point b, point p) {
     return in_segment(a, b, p) ? BOUNDARY : OUTSIDE;
 }
@@ -52,7 +58,12 @@ static result check_point_in_convex(point p, point *poly, int poly_len) {
     }
     int midpoint = poly_len / 2;
     i64 div_line_det = det(poly[0], poly[midpoint], p);
-    if(div_line_det == 0) return in_segment_r(poly[0], poly[midpoint], p);
+    if(div_line_det == 0) {
+        // this case is different from the trig_check case, because this is a line dividing the polygon
+        // if it's in the line, that's inside the polygon, unless it's exactly on the vertices
+        if(point_eq(poly[0], p) || point_eq(poly[midpoint], p)) return BOUNDARY;
+        return in_segment(poly[0], poly[midpoint], p) ? INSIDE : OUTSIDE;
+    }
     if(div_line_det > 0) {
         // not a tail call, but this cuts it in half, so shouldn't overflow
         point prev_value = poly[midpoint - 1];
