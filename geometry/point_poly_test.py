@@ -4,7 +4,7 @@ from subprocess import run
 from fractions import Fraction
 from argparse import ArgumentParser
 from typing import cast
-from math import atan2
+from math import atan2, log10
 from polygenerator import random_polygon
 from shapely.geometry import Polygon, Point, LineString
 import matplotlib.pyplot as plt
@@ -20,9 +20,11 @@ def is_convex(poly: list[tuple[int, int]]) -> bool:
     # a polygon convex should have all cross products of adjacent edges either all positive or all negative
     return all(is_positive) or not any(is_positive)
 
-def random_convex_polygon(n: int, bounding_box: tuple[int, int, int, int]) -> list[tuple[int, int]]:
+def random_convex_polygon_maybe_too_big(n: int, max_absolute_coord: int) -> list[tuple[int, int]]:
     # valtr algorithm
     # the one from polygenerator uses floats, and rounding to int makes it not convex
+    # for some reason this doesn't stay within the bounds
+    # I think I should be generating it in [0, 1] and scaling it to the bounds, but rounding breaks convexity
     def random_unique_numbers(n: int, high: int) -> list[int]:
         numbers = []
         repeat_limit = 1000
@@ -51,29 +53,54 @@ def random_convex_polygon(n: int, bounding_box: tuple[int, int, int, int]) -> li
         l1 = [l1[i + 1] - l1[i] for i in range(len(l1) - 1)]
         l2 = [l2[i] - l2[i + 1] for i in range(len(l2) - 1)]
         return l1 + l2
-    width = bounding_box[2] - bounding_box[0]
-    height = bounding_box[3] - bounding_box[1]
-    x_vec = vec_comp(*random_split(n, width))
-    y_vec = vec_comp(*random_split(n, height))
+    x_vec = vec_comp(*random_split(n, max_absolute_coord))
+    y_vec = vec_comp(*random_split(n, max_absolute_coord))
     shuffle(y_vec)
     vectors = list(zip(x_vec, y_vec))
     vectors = sorted(vectors, key=lambda v: atan2(v[1], v[0]))
     poly: list[tuple[int, int]] = [(0, 0)]
     for v in vectors[:-1]:
         poly.append((poly[-1][0] + v[0], poly[-1][1] + v[1]))
-    poly = [(x + bounding_box[0], y + bounding_box[1]) for x, y in poly]
     if not is_convex(poly):
-        print("rejection of non-convex polygon, this happens when bounding box is too small")
-        return random_convex_polygon(n, bounding_box)
+        print("Rejection of non-convex polygon, this happens when bounding box is too small relative to the number of points (known issue)")
+        return random_convex_polygon_maybe_too_big(n, max_absolute_coord)
     return poly
 
-def random_polygon_integer_points(convex: bool, n: int, bounds: int) -> Polygon:
+def poly_max(poly: list[tuple[int, int]]) -> int:
+    max_abs = 0
+    for x, y in poly:
+        max_abs = max(max_abs, abs(x), abs(y))
+    return max_abs
+
+def random_convex_polygon(n: int, max_absolute_coord: int) -> list[tuple[int, int]]:
+    # fix the algorithm giving polygons that are too big
+    # don't know why it does that
+    current_max = max_absolute_coord
+    while True:
+        poly = random_convex_polygon_maybe_too_big(n, current_max)
+        max_abs = poly_max(poly)
+        if max_abs <= max_absolute_coord:
+            return poly
+        ratio = max_abs / max_absolute_coord
+        factor = 0.7
+        if ratio > 10:
+            factor = 10 ** -max(1, log10(ratio) - 2)
+        elif ratio > 5:
+            factor = 0.3
+        elif ratio > 2:
+            factor = 0.6
+        current_max = int(current_max * factor)
+        print(f"Generated polygon with max abs coord {max_abs}, multiplying max abs coord by {factor} and retrying " +
+              f"({ratio} times too big, known issue of convex polygon generator)")
+
+def random_polygon_integer_points(convex: bool, n: int, max_absolute_coord: int) -> Polygon:
     while True:
         if convex:
-            poly_scaled_integer = random_convex_polygon(n, (-bounds, -bounds, bounds, bounds))
+            poly_scaled_integer = random_convex_polygon(n, max_absolute_coord)
         else:
             poly = random_polygon(n)
-            poly_scaled_integer = [(int(x*bounds), int(y*bounds)) for x, y in poly]
+            poly_scaled_integer = [(int(x*max_absolute_coord), int(y*max_absolute_coord)) for x, y in poly]
+            assert poly_max(poly_scaled_integer) <= max_absolute_coord
         if len(poly_scaled_integer) != len(set(poly_scaled_integer)):
             print("rejection of polygon with duplicate points")
             continue
