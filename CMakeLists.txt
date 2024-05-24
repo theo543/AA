@@ -3,6 +3,15 @@ project(AA C)
 
 set(CMAKE_C_STANDARD 11)
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    if(UNIX)
+        add_compile_options(-fsanitize=address -fsanitize=undefined -fsanitize=leak)
+        add_link_options(-fsanitize=address -fsanitize=undefined -fsanitize=leak)
+    else()
+        add_compile_options(-ftrapv)
+    endif()
+endif()
+
 add_executable(intervals intervals/intervals.c)
 add_executable(fractional_knapsack knapsack/fractional_knapsack.c)
 add_executable(homework_knapsack knapsack/homework_knapsack.c)
