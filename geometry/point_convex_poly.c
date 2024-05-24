@@ -44,14 +44,7 @@ static result trig_check(point a, point b, point c, point p) {
     return ((ab_p > 0 && bc_p > 0 && ca_p > 0) || (ab_p < 0 && bc_p < 0 && ca_p < 0)) ? INSIDE : OUTSIDE;
 }
 
-static void swap(point *a, point *b) {
-    point tmp = *a;
-    *a = *b;
-    *b = tmp;
-}
-
 // check p inside convex poly
-// poly array must have a free space at the end
 static result check_point_in_convex(point p, point *poly, int poly_len) {
     if(poly_len == 3) {
         point a = poly[0], b = poly[1], c = poly[2];
@@ -62,9 +55,10 @@ static result check_point_in_convex(point p, point *poly, int poly_len) {
     if(div_line_det == 0) return in_segment_r(poly[0], poly[midpoint], p);
     if(div_line_det > 0) {
         // not a tail call, but this cuts it in half, so shouldn't overflow
-        swap(&poly[poly_len], &poly[0]);
-        result r = check_point_in_convex(p, poly + midpoint, poly_len - midpoint + 1);
-        swap(&poly[poly_len], &poly[0]);
+        point prev_value = poly[midpoint - 1];
+        poly[midpoint - 1] = poly[0];
+        result r = check_point_in_convex(p, poly + midpoint - 1, poly_len - midpoint + 1);
+        poly[midpoint - 1] = prev_value;
         return r;
     } else {
         return check_point_in_convex(p, poly, midpoint + 1);
