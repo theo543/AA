@@ -91,6 +91,26 @@ int main(void) {
         if(poly[i].y < min_y) min_y = poly[i].y;
     }
 
+    bool wrong_order = false;
+    for(int i = 3;i < n;i++) {
+        i64 det_ = det(poly[i - 2], poly[i - 1], poly[i]);
+        if(det_ < 0) {
+            wrong_order = true;
+            break;
+        } else if(det_ > 0) {
+            break;
+        }
+        // if the points are colinear (i.e. redundant vertices), need to check more
+    }
+    if(wrong_order) {
+        // reverse in place
+        for(i64 l = 0, r = n - 1;l < r;l++, r--) {
+            point temp = poly[l];
+            poly[l] = poly[r];
+            poly[r] = temp;
+        }
+    }
+
     i64 m;
     scanf(I64, &m);
     while(m--) {
