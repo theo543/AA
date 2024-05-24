@@ -2,12 +2,13 @@ from pathlib import Path
 from random import choice, seed, random, randint, shuffle
 from subprocess import run
 from fractions import Fraction
-from sys import argv as sys_argv, exit as sys_exit
+from argparse import ArgumentParser
 from typing import cast
 from math import atan2
 from polygenerator import random_polygon
 from shapely.geometry import Polygon, Point, LineString
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 def is_convex(poly: list[tuple[int, int]]) -> bool:
     def cross_product(a: Point, b: Point, c: Point) -> float:
@@ -24,10 +25,16 @@ def random_convex_polygon(n: int, bounding_box: tuple[int, int, int, int]) -> li
     # the one from polygenerator uses floats, and rounding to int makes it not convex
     def random_unique_numbers(n: int, high: int) -> list[int]:
         numbers = []
+        repeat_limit = 1000
         while True:
             numbers = list(set(numbers))
             if len(numbers) < n:
                 numbers += [randint(0, high) for _ in range(n - len(numbers))]
+                repeat_limit -= 1
+                if repeat_limit == 0:
+                    print(f"Warning: failed to generate {n} unique numbers in range 0-{high} as part of Valtr's algorithm, " +
+                            "continuing with duplicates, the result may be non-convex and rejected later")
+                    return numbers
                 continue
             return numbers
     def random_split(n: int, high: int) -> tuple[list[int], list[int]]:
@@ -55,16 +62,18 @@ def random_convex_polygon(n: int, bounding_box: tuple[int, int, int, int]) -> li
     for v in vectors[:-1]:
         poly.append((poly[-1][0] + v[0], poly[-1][1] + v[1]))
     poly = [(x + bounding_box[0], y + bounding_box[1]) for x, y in poly]
-    assert is_convex(poly)
+    if not is_convex(poly):
+        print("rejection of non-convex polygon, this happens when bounding box is too small")
+        return random_convex_polygon(n, bounding_box)
     return poly
 
-def random_polygon_integer_points(convex: bool, n: int = 1000, scale: int = 1000000) -> Polygon:
+def random_polygon_integer_points(convex: bool, n: int, bounds: int) -> Polygon:
     while True:
         if convex:
-            poly_scaled_integer = random_convex_polygon(n, (-scale, -scale, scale, scale))
+            poly_scaled_integer = random_convex_polygon(n, (-bounds, -bounds, bounds, bounds))
         else:
             poly = random_polygon(n)
-            poly_scaled_integer = [(int(x*scale), int(y*scale)) for x, y in poly]
+            poly_scaled_integer = [(int(x*bounds), int(y*bounds)) for x, y in poly]
         if len(poly_scaled_integer) != len(set(poly_scaled_integer)):
             print("rejection of polygon with duplicate points")
             continue
@@ -125,7 +134,7 @@ def random_point_in_polygon(poly: Polygon) -> tuple[tuple[int, int], str]:
 
 def all_points_on_edge(poly: Polygon) -> list[tuple[tuple[int, int], str]]:
     points = []
-    for x in range(len(poly.exterior.coords) - 1):
+    for x in tqdm(range(len(poly.exterior.coords) - 1), desc="Generating all integer-coordinate points for each edge"):
         a = poly.exterior.coords[x]
         b = poly.exterior.coords[x + 1]
         if b[0] == a[0]:
@@ -148,7 +157,7 @@ def plot_output(out: Path, poly: Polygon, points: list[tuple[tuple[int, int], st
     plt.figure()
     plt.gca().set_aspect('equal')
 
-    for ((x, y), _), result in zip(points, output.split('\n')):
+    for ((x, y), _), result in tqdm(zip(points, output.split('\n')), desc="Plotting output points", total=len(points)):
         markersize = 2
         points_fmt = 'rx'
         if 'BOUNDARY' in result:
@@ -157,10 +166,12 @@ def plot_output(out: Path, poly: Polygon, points: list[tuple[tuple[int, int], st
             points_fmt = 'gx'
         plt.plot(x, y, points_fmt, markersize=markersize)
 
+    print("Plotting polygon...")
     xs = [x for x, _ in poly.exterior.coords]
     ys = [y for _, y in poly.exterior.coords]
     plt.plot(xs, ys, 'b-', linewidth=1)
 
+    print("Saving plot...")
     plt.savefig(out, bbox_inches='tight', pad_inches=0.1, dpi=1200)
 
 def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]]) -> tuple[str, str]:
@@ -172,16 +183,17 @@ def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]]) -> tup
     expected_output = '\n'.join([is_inside for (_, is_inside) in points])
     return solver_input, expected_output
 
-def run_test(convex: bool, solver_path: Path, subtests: int = 10000):
+def run_test(n: int, scale: int, convex: bool, solver_path: Path, subtests: int, plot: bool, boundary: bool):
     expected_output_path = Path("expected_output.txt")
     input_path = Path("input.txt")
     actual_output_path = Path("actual_output.txt")
     img_path = Path("polygon.svg")
 
-    poly = random_polygon_integer_points(convex)
+    poly = random_polygon_integer_points(convex, n, scale)
     print(f"Generated polygon with {len(poly.exterior.coords) - 1} points.")
-    points = [random_point_in_polygon(poly) for _ in range(subtests)] + all_points_on_edge(poly)
-    print(f"Generated {subtests} points plus {len(points) - subtests} points on the edges with integer coordinates.")
+    points = [random_point_in_polygon(poly) for _ in tqdm(range(subtests), desc="Generating random points")]
+    if boundary:
+        points += all_points_on_edge(poly)
     solver_input, expected_output = format_data(poly, points)
     expected_output_path.write_text(expected_output, encoding='ascii')
     input_path.write_text(solver_input, encoding='ascii')
@@ -191,8 +203,9 @@ def run_test(convex: bool, solver_path: Path, subtests: int = 10000):
     assert proc.returncode == 0
     output = proc.stdout.strip()
     print("Solver finished.")
-    plot_output(img_path, poly, points, output)
-    print("Plotted output.")
+    if plot:
+        plot_output(img_path, poly, points, output)
+        print("Plotted output.")
     actual_output_path.write_text(output, encoding='ascii')
 
     assert expected_output == output
@@ -204,18 +217,35 @@ def run_test(convex: bool, solver_path: Path, subtests: int = 10000):
     actual_output_path.unlink()
 
 def main():
-    convex = '--convex' in sys_argv
-    argv = [arg for arg in sys_argv if arg != '--convex']
-    if len(argv) != 2 and len(argv) != 3:
-        print(f"Usage: {argv[0]} <solver_path>")
-        sys_exit(1)
-    solver_path = Path(argv[1])
-    tests = 1
-    if len(argv) == 3:
-        tests = int(argv[2])
+    ap = ArgumentParser("point_poly_test")
+    ap.add_argument("solver_path", type=Path)
+    ap.add_argument("-n", type=int, default=1000,
+                    help="Number of vertices of the polygon")
+    ap.add_argument("--bounds", type=int, default=1000000,
+                    help="Max absolute value of the coordinates")
+    ap.add_argument("--subtests", type=int, default=10000,
+                    help="Number of random test points to generate (the points on the edges are generated deterministically)")
+    ap.add_argument("--convex", action="store_true", default=False,
+                    help="Generate only convex polygons")
+    ap.add_argument("--tests", type=int, default=1,
+                    help="Number of tests to run")
+    ap.add_argument("--disable-boundary", action="store_false", default=True,
+                    help="Disable testing all points on the boundary (might be necessary for polygons with very many edges)")
+    args = ap.parse_args()
+    tests = cast(int, args.tests)
+    n = cast(int, args.n)
+    bounds = cast(int, args.bounds)
+    convex = cast(bool, args.convex)
+    subtests = cast(int, args.subtests)
+    solver_path = cast(Path, args.solver_path)
+    boundary = cast(bool, args.disable_boundary)
+    plot = True
+    if tests > 1:
+        plot = False
+        print("Plotting is disabled for multiple tests due to slow performance.")
     for _ in range(tests):
         seed(None)
-        run_test(convex, solver_path)
+        run_test(n, bounds, convex, solver_path, subtests, plot, boundary)
 
 if __name__ == "__main__":
     main()
