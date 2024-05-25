@@ -223,31 +223,36 @@ def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]], extra_
     coords = coords[coords_rotation:] + coords[:coords_rotation]
     if randint(0, 1):
         coords = coords[::-1]
-    def in_range(x: int, a: int, b: int) -> bool:
-        if a <= b:
-            return a <= x <= b
-        return b <= x <= a
     # insert redundant points to test it doesn't break the solver
-    for i in tqdm(range(1, len(coords)), desc="Inserting collinear points in edges", total=extra_points) if extra_points > 0 else []:
+    modified_coords = [coords[0]]
+    for i in tqdm(range(1, len(coords)), desc="Inserting collinear points in edges", total=len(coords) - 1) if extra_points > 0 else []:
         if extra_points == 0:
             break
         a = coords[i - 1]
         b = coords[i]
+        midpoints: list[tuple[int, int]] = []
         if b[0] == a[0]:
-            x = a[0] + 1
-            y = a[1]
+            for y in range(min(a[1], b[1]) + 1, max(a[1], b[1])):
+                midpoints.append((a[0], y))
         elif b[1] == a[1]:
-            x = a[0]
-            y = a[1] + 1
+            for x in range(min(a[0], b[0]) + 1, max(a[0], b[0])):
+                midpoints.append((x, a[1]))
         else:
             ratio = Fraction(b[1] - a[1], b[0] - a[0])
             x = a[0] + ratio.denominator
             y = a[1] + ratio.numerator
-        if poly.touches(Point(x, y)) and in_range(x, a[0], b[0]) and in_range(y, a[1], b[1]):
-            # only add it if it didn't go past the end of the edge
-            coords.insert(i, (x, y))
-            poly_point_nr += 1
+            while poly.touches(Point(x, y)):
+                midpoints.append((x, y))
+                x += ratio.denominator
+                y += ratio.numerator
+        for p in midpoints:
+            modified_coords.append(p)
             extra_points -= 1
+        modified_coords.append(b)
+    if extra_points > 0:
+        print(f"Inserted {len(modified_coords) - len(coords)} extra points in the polygon edges.")
+        coords = modified_coords
+        poly_point_nr = len(coords)
     poly_point_coords_str = '\n'.join([f'{x} {y}' for x, y in coords])
     challenge_points_nr = len(points)
     challenge_points_str = '\n'.join([f'{p[0]} {p[1]}' for (p, _) in points])
