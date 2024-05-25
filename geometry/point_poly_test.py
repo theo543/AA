@@ -93,6 +93,13 @@ def random_convex_polygon(n: int, max_absolute_coord: int) -> list[tuple[int, in
         print(f"Generated polygon with max abs coord {max_abs}, multiplying max abs coord by {factor} and retrying " +
               f"({ratio} times too big, known issue of convex polygon generator)")
 
+def poly_bounds(poly: list[tuple[int, int]]) -> tuple[int, int, int, int]:
+    min_x = min(x for x, _ in poly)
+    max_x = max(x for x, _ in poly)
+    min_y = min(y for _, y in poly)
+    max_y = max(y for _, y in poly)
+    return min_x, min_y, max_x, max_y
+
 def random_polygon_integer_points(poly_type: str, n: int, max_absolute_coord: int) -> Polygon:
     while True:
         if poly_type == "convex":
@@ -108,6 +115,14 @@ def random_polygon_integer_points(poly_type: str, n: int, max_absolute_coord: in
         if len(poly_scaled_integer) != len(set(poly_scaled_integer)):
             print("rejection of polygon with duplicate points")
             continue
+        min_x, min_y, max_x, max_y = poly_bounds(poly_scaled_integer)
+        possible_x_movement = -max_absolute_coord - min_x, max_absolute_coord - max_x
+        possible_y_movement = -max_absolute_coord - min_y, max_absolute_coord - max_y
+        x_movement = randint(*possible_x_movement)
+        y_movement = randint(*possible_y_movement)
+        poly_scaled_integer = [(x + x_movement, y + y_movement) for x, y in poly_scaled_integer]
+        assert poly_bounds(poly_scaled_integer) == (min_x + x_movement, min_y + y_movement, max_x + x_movement, max_y + y_movement)
+        assert poly_max(poly_scaled_integer) <= max_absolute_coord
         poly_shapely = Polygon(poly_scaled_integer)
         if not (poly_shapely.is_valid and poly_shapely.area > 0):
             print("rejection of invalid polygon")
@@ -135,7 +150,7 @@ def random_point_in_polygon(poly: Polygon) -> tuple[tuple[int, int], str]:
     def not_in_poly(point: Point) -> bool:
         return not poly.contains(point) and not poly.touches(point)
     def random_in_range(min_x: int | float, min_y: int | float, max_x: int | float, max_y: int | float) -> Point:
-        return Point(choice(range(int(min_x), int(max_x))), choice(range(int(min_y), int(max_y))))
+        return Point(randint(int(min_x), int(max_x)), randint(int(min_y), int(max_y)))
     def random_in_aabb() -> Point:
         min_x, min_y, max_x, max_y = bounds
         return random_in_range(min_x, min_y, max_x, max_y)
@@ -146,7 +161,7 @@ def random_point_in_polygon(poly: Polygon) -> tuple[tuple[int, int], str]:
                 return point
     def random_very_near() -> Point:
         while True:
-            vertex_i = choice(range(len(poly.exterior.coords) - 1))
+            vertex_i = randint(0, len(poly.exterior.coords) - 2)
             a = poly.exterior.coords[vertex_i]
             b = poly.exterior.coords[vertex_i + 1]
             line = LineString([a, b])
