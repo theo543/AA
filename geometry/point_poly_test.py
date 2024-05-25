@@ -272,11 +272,12 @@ def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]], extra_
     expected_output = '\n'.join([is_inside for (_, is_inside) in points])
     return solver_input, expected_output
 
-def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: int, plot: bool, boundary: bool, extra_points: int):
+def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: int, plot: bool, boundary: bool, extra_points: int) -> bool:
     expected_output_path = Path("expected_output.txt")
     input_path = Path("input.txt")
     actual_output_path = Path("actual_output.txt")
     img_path = Path("polygon.svg")
+    expected_img_path = Path("expected_polygon.svg")
 
     poly = random_polygon_integer_points(poly_type, n, scale)
     print(f"Generated polygon with {len(poly.exterior.coords) - 1} points.")
@@ -291,21 +292,29 @@ def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: in
     print("Running solver...")
 
     proc = run([solver_path], input=solver_input, capture_output=True, text=True, check=False)
-    assert proc.returncode == 0
-    output = proc.stdout.strip()
     print("Solver finished.")
+    output = proc.stdout.strip()
+    actual_output_path.write_text(output, encoding='ascii')
+    if proc.returncode != 0:
+        print(f"Solver exit code is {proc.returncode}.")
+        print("Output won't be plotted since it's likely incomplete or garbage. Output files will still be saved.")
+        print("Printing stderr:")
+        print(proc.stderr)
+        return False
+    if output != expected_output:
+        print("Output doesn't match expected output.")
+        print("Incorrect output will be plotted, output files will be saved.")
+        plot_output(img_path, poly, points, output)
+        plot_output(expected_img_path, poly, points, expected_output)
+        return False
     if plot:
         plot_output(img_path, poly, points, output)
         print("Plotted output.")
-    actual_output_path.write_text(output, encoding='ascii')
-
-    assert expected_output == output
-
     print("Test passed.")
-
     expected_output_path.unlink()
     input_path.unlink()
     actual_output_path.unlink()
+    return True
 
 def main():
     ap = ArgumentParser("point_poly_test")
@@ -344,9 +353,12 @@ def main():
     if tests > 1:
         plot = False
         print("Plotting is disabled for multiple tests due to slow performance.")
-    for _ in range(tests):
+    for i in range(tests):
         seed(None)
-        run_test(n, bounds, poly_type, solver_path, subtests, plot, boundary, extra_points)
+        if not run_test(n, bounds, poly_type, solver_path, subtests, plot, boundary, extra_points):
+            if i != tests - 1:
+                print(f"Remaining {tests - i - 1} tests cancelled due to failure.")
+            break
 
 if __name__ == "__main__":
     main()
