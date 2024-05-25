@@ -266,6 +266,7 @@ def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: in
     points = [random_point_in_polygon(poly) for _ in tqdm(range(subtests), desc="Generating random points")]
     if boundary:
         points += all_points_on_edge(poly)
+        points += [((int(x), int(y)), "BOUNDARY") for x, y in poly.exterior.coords]
     solver_input, expected_output = format_data(poly, points, extra_points)
     expected_output_path.write_text(expected_output, encoding='ascii')
     input_path.write_text(solver_input, encoding='ascii')
