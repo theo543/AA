@@ -3,7 +3,7 @@ from random import choice, seed, random, randint, shuffle
 from subprocess import run
 from fractions import Fraction
 from argparse import ArgumentParser
-from typing import cast
+from typing import Callable, cast
 from math import atan2, log10, cos, sin, pi
 from polygenerator import random_polygon
 from shapely.geometry import Polygon, Point, LineString
@@ -154,40 +154,52 @@ def random_point_in_polygon(poly: Polygon) -> tuple[tuple[int, int], str]:
     def random_in_aabb() -> Point:
         min_x, min_y, max_x, max_y = bounds
         return random_in_range(min_x, min_y, max_x, max_y)
-    def random_near() -> Point:
-        while True:
-            point = random_in_aabb()
-            if not_in_poly(point):
-                return point
-    def random_very_near() -> Point:
-        while True:
-            vertex_i = randint(0, len(poly.exterior.coords) - 2)
-            a = poly.exterior.coords[vertex_i]
-            b = poly.exterior.coords[vertex_i + 1]
-            line = LineString([a, b])
-            p = line.interpolate(random())
-            nudge = range(-1, 2)
-            p = Point(int(p.x) + choice(nudge), int(p.y) + choice(nudge))
-            if not_in_poly(p):
-                return p
-    def random_inside() -> Point:
-        while True:
-            point = random_in_aabb()
-            if poly.contains(point):
-                return point
-    def random_far() -> Point:
-        while True:
-            min_x, min_y, max_x, max_y = bounds
-            x_len = max_x - min_x
-            y_len = max_y - min_y
-            div = 20 # don't go too far because it makes the plot ugly
-            point = random_in_range(min_x - x_len // div, min_y - y_len // div, max_x + x_len // div, max_y + y_len // div)
-            if not_in_poly(point):
-                return point
-
+    def random_near() -> Point | None:
+        point = random_in_aabb()
+        if not_in_poly(point):
+            return point
+        return None
+    def random_very_near() -> Point | None:
+        vertex_i = randint(0, len(poly.exterior.coords) - 2)
+        a = poly.exterior.coords[vertex_i]
+        b = poly.exterior.coords[vertex_i + 1]
+        line = LineString([a, b])
+        p = line.interpolate(random())
+        nudge = range(-1, 2)
+        p = Point(int(p.x) + choice(nudge), int(p.y) + choice(nudge))
+        if not_in_poly(p):
+            return p
+        return None
+    def random_inside() -> Point | None:
+        point = random_in_aabb()
+        if poly.contains(point):
+            return point
+        return None
+    def random_far() -> Point | None:
+        min_x, min_y, max_x, max_y = bounds
+        x_len = max_x - min_x
+        y_len = max_y - min_y
+        div = 20 # don't go too far because it makes the plot ugly
+        point = random_in_range(min_x - x_len // div, min_y - y_len // div, max_x + x_len // div, max_y + y_len // div)
+        if not_in_poly(point):
+            return point
+        return None
+    def repeat_until_success(func: Callable[[], Point | None], expected: str, limit: int | None) -> tuple[Point, str]:
+        for _ in (range(limit) if limit is not None else iter(int, 1)):
+            result = func()
+            if result:
+                return (result, expected)
+        p = poly.representative_point()
+        p = Point(int(p.x), int(p.y))
+        if poly.contains(p):
+            return (p, "INSIDE")
+        if poly.touches(p):
+            return (p, "BOUNDARY")
+        return (p, "OUTSIDE")
     choices = [(random_near, "OUTSIDE"), (random_far, "OUTSIDE"), (random_very_near, "OUTSIDE")] + [(random_inside, "INSIDE")] * 3
     (func, is_inside) = choice(choices)
-    return (shapely_point_to_int_tuple(func()), is_inside)
+    (point, result_is_inside) = repeat_until_success(func, is_inside, 100)
+    return (shapely_point_to_int_tuple(point), result_is_inside)
 
 def all_points_on_edge(poly: Polygon) -> list[tuple[tuple[int, int], str]]:
     points = []
