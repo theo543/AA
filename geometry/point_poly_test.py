@@ -216,6 +216,18 @@ def plot_output(out: Path, poly: Polygon, points: list[tuple[tuple[int, int], st
     print("Saving plot...")
     plt.savefig(out, bbox_inches='tight', pad_inches=0.1, dpi=1200)
 
+def validate_test_data_expected_output(poly: Polygon, points: list[tuple[tuple[int, int], str]]):
+    for (p, expected) in tqdm(points, desc="Validating test data expected output by checking it agrees with Shapely"):
+        match expected:
+            case "INSIDE":
+                assert poly.contains(Point(p))
+            case "OUTSIDE":
+                assert not poly.contains(Point(p)) and not poly.touches(Point(p))
+            case "BOUNDARY":
+                assert poly.touches(Point(p))
+            case _:
+                raise ValueError("invalid expected string - must be INSIDE, OUTSIDE or BOUNDARY")
+
 def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]], extra_points: int) -> tuple[str, str]:
     poly_point_nr = len(poly.exterior.coords) - 1
     coords = [shapely_point_to_int_tuple(Point(pt)) for pt in poly.exterior.coords[:-1]]
@@ -272,6 +284,7 @@ def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: in
     if boundary:
         points += all_points_on_edge(poly)
         points += [((int(x), int(y)), "BOUNDARY") for x, y in poly.exterior.coords]
+    validate_test_data_expected_output(poly, points)
     solver_input, expected_output = format_data(poly, points, extra_points)
     expected_output_path.write_text(expected_output, encoding='ascii')
     input_path.write_text(solver_input, encoding='ascii')
