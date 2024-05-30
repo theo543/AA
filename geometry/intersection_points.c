@@ -101,7 +101,7 @@ int main(void) {
             i32 x_end = max(x_a, x_b);
             x_begin++;
             x_end--;
-            if(x_a > x_b) continue;
+            if(x_begin > x_end) continue;
             events[events_len++] = (event){y_a, x_begin, x_end, HORIZONTAL};
         } else {
             fprintf(stderr, "Line must be horizontal or vertical\n");
