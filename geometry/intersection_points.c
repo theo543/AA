@@ -9,7 +9,9 @@
 #define LAST_COORD (TOTAL_COORDS - 1)
 
 typedef int32_t i32;
+typedef int64_t i64;
 #define I32 "%" PRId32
+#define I64 "%" PRId64
 
 static i32 max(i32 a, i32 b) {
     return a > b ? a : b;
@@ -42,7 +44,7 @@ static i32 right(i32 node) {
 }
 
 static i32 segment_tree_query(i32 *array, i32 node, i32 node_left, i32 node_right, i32 query_left, i32 query_right) {
-    if(node_left == node_right) {
+    if(node_left == query_left && node_right == query_right) {
         return array[node];
     }
     i32 midpoint = (node_left + node_right) / 2;
@@ -72,8 +74,9 @@ static void segment_tree_add(i32 *array, i32 node, i32 node_left, i32 node_right
 }
 
 int main(void) {
-    static event events[MAX_SEGMENTS * 2 + 1];
-    static i32 segment_tree[TOTAL_COORDS * 2 + 1];
+    static event events[MAX_SEGMENTS * 2];
+    // first element is unused, array is 1-indexed because the root node of segment tree needs to be at index 1, since left(0) == 0
+    static i32 segment_tree[TOTAL_COORDS * 4 + 1];
     i32 events_len = 0;
     i32 n;
     scanf(I32, &n);
@@ -106,15 +109,15 @@ int main(void) {
         }
     }
     qsort(events, events_len, sizeof(event), compare_events);
-    i32 intersections = 0;
+    i64 intersections = 0;
     for(int x = 0;x < events_len;x++) {
         if(events[x].type == HORIZONTAL) {
-            i32 inter = segment_tree_query(segment_tree, 0, 0, LAST_COORD, events[x].horizontal_begin, events[x].horizontal_end);
+            i32 inter = segment_tree_query(segment_tree, 1, 0, LAST_COORD, events[x].horizontal_begin, events[x].horizontal_end);
             intersections += inter;
         } else {
             i32 add_value = events[x].type == START_VERTICAL ? 1 : -1;
-            segment_tree_add(segment_tree, 0, 0, LAST_COORD, events[x].horizontal_begin, add_value);
+            segment_tree_add(segment_tree, 1, 0, LAST_COORD, events[x].horizontal_begin, add_value);
         }
     }
-    printf(I32 "\n", intersections);
+    printf(I64 "\n", intersections);
 }
