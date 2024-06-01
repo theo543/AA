@@ -25,3 +25,4 @@ add_executable(intersection_horizontal_vertical_semiplanes geometry/intersection
 add_executable(point_circumscribed_circle_position geometry/point_circumscribed_circle_position.c)
 add_executable(illegal_edges geometry/illegal_edges.c)
 add_executable(intersection_points geometry/intersection_points.c)
+add_executable(point_horizontal_vertical_semiplanes geometry/point_horizontal_vertical_semiplanes.c)
