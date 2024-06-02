@@ -4,6 +4,7 @@ project(AA C)
 set(CMAKE_C_STANDARD 11)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-Wall -Wextra -pedantic)
     if(UNIX)
         add_compile_options(-fsanitize=address -fsanitize=undefined -fsanitize=leak)
         add_link_options(-fsanitize=address -fsanitize=undefined -fsanitize=leak)
