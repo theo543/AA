@@ -8,6 +8,14 @@ typedef int32_t i32;
 typedef int64_t i64;
 #define I32 "%" PRId32
 
+static void minimize(i32 *current_min, i32 new_value) {
+    if(new_value < *current_min) *current_min = new_value;
+}
+
+static void maximize(i32 *current_max, i32 new_value) {
+    if(new_value > *current_max) *current_max = new_value;
+}
+
 typedef enum result { INSIDE, OUTSIDE, BOUNDARY } result;
 
 typedef struct point { i32 x; i32 y; } point;
@@ -84,9 +92,18 @@ int main(void) {
     static point polygon[MAX_POINTS];
     i32 polygon_len;
 
+    i32 min_x = INT32_MAX;
+    i32 min_y = INT32_MAX;
+    i32 max_x = INT32_MIN;
+    i32 max_y = INT32_MIN;
+
     scanf(I32, &polygon_len);
     for(int x = 0;x < polygon_len;x++) {
         scanf(I32 I32, &polygon[x].x, &polygon[x].y);
+        minimize(&min_x, polygon[x].x);
+        maximize(&max_x, polygon[x].x);
+        minimize(&min_y, polygon[x].y);
+        maximize(&max_y, polygon[x].y);
         if((x >= 2) && (orientation(polygon[x - 2], polygon[x - 1], polygon[x]) == 0)) {
             polygon[x - 1] = polygon[x];
             polygon_len--;
@@ -108,7 +125,12 @@ int main(void) {
     for(int x = 0;x < m;x++) {
         point p;
         scanf(I32 I32, &p.x, &p.y);
-        result r = point_in_convex_polygon(polygon, polygon_len, p);
+        result r;
+        if((!in_interval(min_x, max_x, p.x)) || (!in_interval(min_y, max_y, p.y))) {
+            r = OUTSIDE;
+        } else {
+            r = point_in_convex_polygon(polygon, polygon_len, p);
+        }
         puts(result_str[r]);
     }
 }
