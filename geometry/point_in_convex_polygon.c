@@ -8,6 +8,10 @@ typedef int32_t i32;
 typedef int64_t i64;
 #define I32 "%" PRId32
 
+static i64 abs64(i64 x) {
+    return x > 0 ? x : -x;
+}
+
 static void minimize(i32 *current_min, i32 new_value) {
     if(new_value < *current_min) *current_min = new_value;
 }
@@ -24,7 +28,7 @@ static bool point_equal(point a, point b) {
     return a.x == b.x && a.y == b.y;
 }
 
-static i64 orientation(point a, point b, point p) {
+static i64 signed_area(point a, point b, point p) {
     /*
         | a_x a_y 1 |
         | b_x b_y 1 |
@@ -34,6 +38,8 @@ static i64 orientation(point a, point b, point p) {
 
         | (b_x - a_x) (b_y - a_y) |
         | (p_x - a_x) (p_y - a_y) |
+
+        returns 2 * signed area of triangle a, b, p (positive if points are counterclockwise)
     */
     return (i64)(b.x - a.x) * (i64)(p.y - a.y) - (i64)(b.y - a.y) * (i64)(p.x - a.x);
 }
@@ -44,18 +50,18 @@ static bool in_interval(i32 a, i32 b, i32 x) {
 }
 
 static bool point_in_segment(point a, point b, point p) {
-    return (orientation(a, b, p) == 0) && in_interval(a.x, b.x, p.x) && in_interval(a.y, b.y, p.y);
+    return (signed_area(a, b, p) == 0) && in_interval(a.x, b.x, p.x) && in_interval(a.y, b.y, p.y);
 }
 
 static result point_in_triangle(point a, point b, point c, point p) {
-    if(point_in_segment(a, b, p) || point_in_segment(b, c, p) || point_in_segment(c, a, p)) return BOUNDARY;
-
-    bool o_ab = (orientation(a, b, p) > 0);
-    bool o_bc = (orientation(b, c, p) > 0);
-    bool o_ca = (orientation(c, a, p) > 0);
-    if((o_ab == o_bc) && (o_bc == o_ca)) return INSIDE;
-
-    return OUTSIDE;
+    i64 abc_area = abs64(signed_area(a, b, c));
+    i64 abp_area = abs64(signed_area(a, b, p));
+    i64 bcp_area = abs64(signed_area(b, c, p));
+    i64 cap_area = abs64(signed_area(c, a, p));
+    i64 total_area = abp_area + bcp_area + cap_area;
+    if(abc_area != total_area) return OUTSIDE;
+    if(abp_area == 0 || bcp_area == 0 || cap_area == 0) return BOUNDARY;
+    return INSIDE;
 }
 
 static result point_in_convex_polygon(point *polygon, i32 polygon_len, point p) {
@@ -69,7 +75,7 @@ static result point_in_convex_polygon(point *polygon, i32 polygon_len, point p) 
     i32 mid = polygon_len / 2;
     point p_0 = polygon[0];
     point p_mid = polygon[mid];
-    i64 mid_line_ori = orientation(p_0, p_mid, p);
+    i64 mid_line_ori = signed_area(p_0, p_mid, p);
     if(mid_line_ori == 0) {
         if(point_equal(p_0, p) || point_equal(p_mid, p)) return BOUNDARY;
         if(point_in_segment(p_0, p_mid, p)) return INSIDE;
@@ -104,14 +110,14 @@ int main(void) {
         maximize(&max_x, polygon[x].x);
         minimize(&min_y, polygon[x].y);
         maximize(&max_y, polygon[x].y);
-        if((x >= 2) && (orientation(polygon[x - 2], polygon[x - 1], polygon[x]) == 0)) {
+        if((x >= 2) && (signed_area(polygon[x - 2], polygon[x - 1], polygon[x]) == 0)) {
             polygon[x - 1] = polygon[x];
             polygon_len--;
             x--;
         }
     }
 
-    if(orientation(polygon[0], polygon[1], polygon[2]) < 0) {
+    if(signed_area(polygon[0], polygon[1], polygon[2]) < 0) {
         for(int l = 0, r = polygon_len - 1;l < r;l++, r--) {
             point tmp = polygon[l];
             polygon[l] = polygon[r];
