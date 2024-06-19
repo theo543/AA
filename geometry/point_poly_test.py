@@ -211,7 +211,13 @@ def all_points_on_edge(poly: Polygon) -> list[tuple[tuple[int, int], str]]:
             for y in range(min(int(a[1]), int(b[1])), max(int(a[1]), int(b[1])) + 1):
                 points.append(((int(a[0]), y), "BOUNDARY"))
             continue
+        if b[1] == a[1]:
+            # special case for horizontal edges
+            for x in range(min(int(a[0]), int(b[0])), max(int(a[0]), int(b[0])) + 1):
+                points.append(((x, int(a[1])), "BOUNDARY"))
+            continue
         slope = Fraction(int(b[1]) - int(a[1]), int(b[0]) - int(a[0]))
+        assert slope.denominator != 0 and slope.numerator != 0
         for step in range(999999999):
             x = a[0] + step * slope.denominator
             y = a[1] + step * slope.numerator
