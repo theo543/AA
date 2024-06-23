@@ -6,7 +6,7 @@ from argparse import ArgumentParser
 from typing import Callable, cast
 from math import atan2, log10, cos, sin, pi
 from polygenerator import random_polygon
-from shapely.geometry import Polygon, Point, LineString
+from shapely.geometry import Polygon, Point, LineString, polygon
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
@@ -261,12 +261,14 @@ def validate_test_data_expected_output(poly: Polygon, points: list[tuple[tuple[i
             case _:
                 raise ValueError("invalid expected string - must be INSIDE, OUTSIDE or BOUNDARY")
 
-def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]], extra_points: int) -> tuple[str, str]:
+def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]], extra_points: int, force_trig_order: bool) -> tuple[str, str]:
+    if force_trig_order:
+        poly = polygon.orient(poly, sign=1.0)
     poly_point_nr = len(poly.exterior.coords) - 1
     coords = [shapely_point_to_int_tuple(Point(pt)) for pt in poly.exterior.coords[:-1]]
     coords_rotation = randint(0, len(coords) - 1)
     coords = coords[coords_rotation:] + coords[:coords_rotation]
-    if randint(0, 1):
+    if not force_trig_order and randint(0, 1) == 0:
         coords = coords[::-1]
     # insert redundant points to test it doesn't break the solver
     modified_coords = [coords[0]]
@@ -305,7 +307,7 @@ def format_data(poly: Polygon, points: list[tuple[tuple[int, int], str]], extra_
     expected_output = '\n'.join([is_inside for (_, is_inside) in points])
     return solver_input, expected_output
 
-def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: int, plot: bool, boundary: bool, extra_points: int) -> bool:
+def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: int, plot: bool, boundary: bool, extra_points: int, force_trig_order: bool) -> bool:
     expected_output_path = Path("expected_output.txt")
     input_path = Path("input.txt")
     actual_output_path = Path("actual_output.txt")
@@ -319,7 +321,7 @@ def run_test(n: int, scale: int, poly_type: str, solver_path: Path, subtests: in
         points += all_points_on_edge(poly)
         points += [((int(x), int(y)), "BOUNDARY") for x, y in poly.exterior.coords]
     validate_test_data_expected_output(poly, points)
-    solver_input, expected_output = format_data(poly, points, extra_points)
+    solver_input, expected_output = format_data(poly, points, extra_points, force_trig_order)
     expected_output_path.write_text(expected_output, encoding='ascii')
     input_path.write_text(solver_input, encoding='ascii')
     print("Running solver...")
@@ -371,6 +373,8 @@ def main():
     ap.add_argument("--extra-points", type=int, default=0,
                     help="Number of extra points to insert in the polygon edges, up to one per edge " +
                     "(will add points to input, make sure it doesn't overflow the solver's limit)")
+    ap.add_argument("--force-trig-order", action="store_true", default=False,
+                    help="Only order the points in the polygon in trigonometric order (i.e. counterclockwise)")
     args = ap.parse_args()
     tests = cast(int, args.tests)
     n = cast(int, args.n)
@@ -381,6 +385,7 @@ def main():
     solver_path = cast(Path, args.solver_path)
     boundary = cast(bool, args.disable_boundary)
     extra_points = cast(int, args.extra_points)
+    force_trig_order = cast(bool, args.force_trig_order)
     plot = True
     poly_type = "deterministic_convex" if det_convex else "convex" if convex else "concave"
     if tests > 1:
@@ -388,7 +393,7 @@ def main():
         print("Plotting is disabled for multiple tests due to slow performance.")
     for i in range(tests):
         seed(None)
-        if not run_test(n, bounds, poly_type, solver_path, subtests, plot, boundary, extra_points):
+        if not run_test(n, bounds, poly_type, solver_path, subtests, plot, boundary, extra_points, force_trig_order):
             if i != tests - 1:
                 print(f"Remaining {tests - i - 1} tests cancelled due to failure.")
             break
